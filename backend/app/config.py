@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=180, ge=0, le=99_999)
     default_top_k: int = Field(default=4, ge=1, le=10)
     min_similarity: int = Field(default=35, ge=0, le=100)
+    index_languages: set[str] = Field(default_factory=lambda: {"en"})
 
     @field_validator("gemini_api_key", mode="before")
     @classmethod
@@ -50,6 +51,21 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_api_base_url(cls, value: str) -> str:
         return value.rstrip("/")
+
+    @field_validator("index_languages")
+    @classmethod
+    def normalize_index_languages(cls, value: set[str]) -> set[str]:
+        languages = {language.strip().lower() for language in value}
+        supported = {"en", "de", "fr", "unknown"}
+        unsupported = languages - supported
+        if unsupported:
+            raise ValueError(
+                "INDEX_LANGUAGES values must be en, de, fr, or unknown; "
+                f"unsupported: {', '.join(sorted(unsupported))}"
+            )
+        if not languages:
+            raise ValueError("INDEX_LANGUAGES must contain at least one language")
+        return languages
 
     @model_validator(mode="after")
     def validate_chunk_overlap(self) -> "Settings":
