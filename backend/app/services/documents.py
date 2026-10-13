@@ -202,7 +202,7 @@ def _extract_pdf_pages(raw: bytes) -> tuple[list[tuple[int, str]], int]:
         skipped = 0
         for page_number, page in enumerate(reader.pages, start=1):
             text = page.extract_text() or ""
-            if len(re.sub(r"\s", "", text)) < _MIN_PDF_PAGE_CHARACTERS:
+            if _is_drawing_page(text):
                 skipped += 1
                 continue
             extracted.append((page_number, text))
@@ -211,6 +211,17 @@ def _extract_pdf_pages(raw: bytes) -> tuple[list[tuple[int, str]], int]:
             "The PDF could not be read. Confirm that it is a valid PDF file."
         ) from exc
     return extracted, skipped
+
+
+def _is_drawing_page(text: str) -> bool:
+    if len(re.sub(r"\s", "", text)) < _MIN_PDF_PAGE_CHARACTERS:
+        return True
+    has_sheet_marker = re.search(r"\bsheet\s+\d+\s+of\s+\d+\b", text, re.IGNORECASE)
+    has_figure_label = re.search(r"\bfig(?:ure)?\.?\s*\d+\b", text, re.IGNORECASE)
+    if not (has_sheet_marker or has_figure_label):
+        return False
+    real_word_count = len(re.findall(r"\b[^\W\d_]{3,}\b", text, re.UNICODE))
+    return real_word_count < 40
 
 
 def _normalize_text(text: str) -> str:

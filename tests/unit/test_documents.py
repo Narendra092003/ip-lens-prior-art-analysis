@@ -103,6 +103,38 @@ def test_pdf_skips_near_empty_drawing_page_and_reports_count() -> None:
     assert [page.page_number for page in extracted.pages] == [2]
 
 
+def test_pdf_skips_us_drawing_sheet_with_sheet_marker_and_reference_numbers() -> None:
+    drawing_sheet = "Sheet 3 of 24 FIG. 3 " + " ".join(str(number) for number in range(100, 131))
+    assert len("".join(drawing_sheet.split())) >= 50
+    useful_text = "A system comprising a battery sensor and a controller configured to measure voltage."
+
+    extracted = extract_document(
+        "drawing_sheet.pdf",
+        _make_pdf([drawing_sheet, useful_text]),
+        index_languages={"en"},
+    )
+
+    assert [page.page_number for page in extracted.pages] == [2]
+    assert extracted.skipped_page_count == 1
+
+
+def test_pdf_keeps_normal_paragraph_that_mentions_figure_label() -> None:
+    paragraph = (
+        "The illustrated apparatus includes a battery housing and a controller connected to "
+        "multiple sensors. In this embodiment, FIG. 3 shows the assembly positioned inside a "
+        "protective enclosure, while a power converter regulates voltage and a communication "
+        "module sends operating data to a remote monitoring device. The system also includes "
+        "a thermal interface that transfers excess heat toward an external cooling surface "
+        "during normal operation."
+    )
+
+    extracted = extract_document("description.pdf", _make_pdf([paragraph]), index_languages={"en"})
+
+    assert extracted.skipped_page_count == 0
+    assert len(extracted.pages) == 1
+    assert "FIG. 3" in extracted.pages[0].text
+
+
 def test_page_language_is_tagged_and_non_selected_language_excluded() -> None:
     french = "Le dispositif est dans une chambre avec les capteurs et un contrôleur."
     english = "The sensor is connected to a controller and the system operates with a valve."

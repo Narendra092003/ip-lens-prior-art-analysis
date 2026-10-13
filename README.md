@@ -30,6 +30,12 @@ Start the API from the project root with:
 uv run uvicorn backend.app.main:app --reload
 ```
 
+Ingest all supported documents in a folder (for example, the real-patent demo set) with:
+
+```powershell
+uv run python scripts/ingest_folder.py examples/real
+```
+
 The Streamlit interface command will be documented when its phase is implemented.
 
 ## Scope and limitations

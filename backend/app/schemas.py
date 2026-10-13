@@ -26,6 +26,8 @@ class IndexedDocument(ContractModel):
     filename: str
     title: str
     passage_count: int = Field(ge=0)
+    skipped_page_count: int = Field(default=0, ge=0)
+    excluded_language_page_count: int = Field(default=0, ge=0)
 
 
 class DocumentFailure(ContractModel):
