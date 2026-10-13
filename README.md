@@ -24,7 +24,13 @@ Copy-Item .env.example .env
 
 Set `GEMINI_API_KEY` in `.env` to enable Gemini features. Never commit `.env` or put confidential disclosures in this demo: disclosure text and retrieved passages are sent to the configured Gemini API when model-backed analysis is implemented.
 
-The API and interface commands will be documented here as their phases are implemented.
+Start the API from the project root with:
+
+```powershell
+uv run uvicorn backend.app.main:app --reload
+```
+
+The Streamlit interface command will be documented when its phase is implemented.
 
 ## Scope and limitations
 

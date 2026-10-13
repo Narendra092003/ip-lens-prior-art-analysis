@@ -30,6 +30,10 @@ class VectorStore:
     def __init__(self, settings: Settings | None = None) -> None:
         active_settings = settings or get_settings()
         path = Path(active_settings.chroma_path)
+        if not path.is_absolute():
+            project_root = Path(__file__).resolve().parents[3]
+            path = project_root / path
+        path = path.resolve()
         path.mkdir(parents=True, exist_ok=True)
         self.client = chromadb.PersistentClient(path=str(path))
         self.collection = self.client.get_or_create_collection(
