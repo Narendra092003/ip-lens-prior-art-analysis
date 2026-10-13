@@ -1,0 +1,22 @@
+﻿# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local data and exports
+data/*
+!data/.gitkeep
+outputs/*
+!outputs/.gitkeep
+
+# Real patent PDFs (listed in examples/REAL_PATENTS.md, not committed)
+examples/real/
+
+# Editor and OS
+.vscode/
+.idea/
+Thumbs.db

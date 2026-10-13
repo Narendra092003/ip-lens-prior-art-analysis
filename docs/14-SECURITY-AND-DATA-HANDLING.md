@@ -1,0 +1,38 @@
+# 14 — Security and Data Handling
+
+## Intended deployment boundary
+
+The MVP runs locally for one user. It has no account system, authorization model, tenant isolation, hosted storage, or production security controls. Do not present it as a secure enterprise legal platform.
+
+## Data flow and disclosure
+
+- Uploaded files are parsed and indexed in local ChromaDB under ignored `data/`.
+- The disclosure text and retrieved excerpts are sent to the configured Gemini API for generation.
+- The app must show this data-handling notice before analysis.
+- Use fictional samples in demos. Do not submit confidential or client material without permission and an approved data-handling basis.
+- Do not persist full analysis reports by default. Exports are initiated by the user.
+
+## Threats and controls
+
+| Risk | MVP control |
+|---|---|
+| API key committed or shown | `.env` ignored by Git; `.env.example` contains placeholders; health endpoint reveals only whether a key is configured |
+| Prompt injection inside a patent document | Treat passages as untrusted data; comparison prompt disallows following document instructions; no tools or external actions are exposed to Gemini |
+| Hallucinated citation | Validate every cited chunk ID against the current claim's retrieved IDs and enrich metadata from ChromaDB |
+| Oversized or malicious file | Enforce file-size and type allow-lists before parsing; surface safe errors |
+| Scanned PDF mistaken for searchable | Detect empty extraction and report that OCR is unsupported |
+| Local corpus accidentally committed | Ignore `data/`, environment files, caches, and local exports |
+| Unsupported legal conclusion | Label all findings as human-review triage and display scope/uncertainty limitations |
+
+## Enterprise deployment note
+
+The MVP sends disclosure text to the public Gemini API, which is acceptable only for fictional or public material. Unfiled invention disclosures are highly confidential. In a company setting the model call would run on approved infrastructure inside the organisation's own environment (for example a tenant-hosted model service), with access control and logging. Because the SDK is isolated in one module, this is a provider swap, not a redesign. Say this explicitly when presenting the project.
+
+## Secrets
+
+Read secrets only from environment-backed settings. Never put Gemini keys in source, prompts, logs, generated reports, screenshots, or chat attachments. The API returns a `gemini_configured` boolean only.
+
+## Legal and research limits
+
+The app compares only uploaded material. Search similarity does not establish legal relevance, priority date, claim construction, infringement, novelty, or patentability. The output is not legal advice. Analysts should review original documents and consult qualified counsel for legal decisions.
+
