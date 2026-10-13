@@ -1,18 +1,33 @@
-# IP Lens — Multi-Agent Prior-Art Search & Novelty Triage
+# IP Lens
 
-**Evidence-linked analysis of user-provided patent literature for technology disclosures.**
+IP Lens is a local research aid for comparing an invention disclosure with patent documents supplied by the user. It is designed to retrieve relevant passages, organize claim-level evidence, and prepare a provisional novelty-risk triage report for human review.
 
-IP Lens is a portfolio project specification for a local application built with Python, LangGraph, FastAPI, ChromaDB, Gemini, and Streamlit. It structures an invention disclosure, retrieves relevant passages from documents the user uploads, and prepares a provisional novelty-risk triage report for human review.
+The project is under phased development. This starter repository currently defines the Python environment, configuration, and API data contracts; the application workflow is not yet complete.
 
-This package is a design and implementation guide; it is not a claim that the application has already been built. The system does not search the open web, decide patentability, or provide legal advice.
+## Planned stack
 
-## Start here
+- Python 3.11 or later, managed with [uv](https://docs.astral.sh/uv/)
+- FastAPI for the service API
+- Streamlit for the interface
+- ChromaDB with local embeddings for the uploaded corpus
+- LangGraph for the analysis workflow
+- Gemini through the official `google-genai` SDK
 
-1. Read [`PROJECT_SPECIFICATION.md`](./PROJECT_SPECIFICATION.md), the source of truth for scope and acceptance criteria.
-2. Use [`docs/00-README.md`](./docs/00-README.md) to navigate the numbered design documents.
-3. Follow [`docs/07-GETTING-STARTED.md`](./docs/07-GETTING-STARTED.md) to open the workspace in Visual Studio Code.
-4. Implement only the current phase in [`docs/19-BUILD-ORDER.md`](./docs/19-BUILD-ORDER.md), which also holds the 5-day plan.
-5. See [`DESIGN-CHANGES.md`](./DESIGN-CHANGES.md) for what changed from the first version and why.
+## Setup
 
-On this machine, the prepared clean implementation workspace is `C:\Users\HP\Documents\Codex\2026-10-13\ip-lens-step-by-step`. If using this ZIP as a fresh workspace, extract it and use the included `IP-Lens-Project` folder as the project root. Keep the completed `ip-lens` folder as a reference copy and keep the planning/output folder separate.
+Install Python 3.11+ and uv, then run:
 
+```powershell
+uv sync
+Copy-Item .env.example .env
+```
+
+Set `GEMINI_API_KEY` in `.env` to enable Gemini features. Never commit `.env` or put confidential disclosures in this demo: disclosure text and retrieved passages are sent to the configured Gemini API when model-backed analysis is implemented.
+
+The API and interface commands will be documented here as their phases are implemented.
+
+## Scope and limitations
+
+IP Lens will search only documents uploaded to its local corpus. Its score is an unvalidated triage heuristic, not a probability, patentability decision, or legal opinion. Analysts must review the source documents and consult qualified counsel for legal decisions. Use fictional or public material for demonstrations.
+
+See [PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md) for the complete scope and [docs/19-BUILD-ORDER.md](docs/19-BUILD-ORDER.md) for the phased implementation plan.
