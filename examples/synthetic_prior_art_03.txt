@@ -1,0 +1,41 @@
+SYNTHETIC EXAMPLE — FICTIONAL DOCUMENT, NOT A REAL PATENT
+Title: Location-Aware Sprayer Boom Section Control
+
+ABSTRACT
+A mobile agricultural sprayer controls individual boom sections using vehicle-location data, a field map, and an application boundary. A controller receives sensor data, determines a position of the sprayer, and selectively enables or disables boom sections to reduce overlap and avoid mapped exclusion regions. An operator terminal displays section states and allows an operator to set boundary margins. The control can use stored field data and a location-quality indicator. This fictional patent-style document is intended only for software evaluation.
+
+DESCRIPTION
+Technical field
+The subject matter relates to control of an agricultural sprayer having multiple independently controlled boom sections.
+
+Background
+A sprayer may apply material to a field in passes. Turning, irregular boundaries, and previously treated areas can result in overlapping application. Manual switching of boom sections may be difficult when the operator is simultaneously steering and watching the boom. Location-aware section control can assist, provided that the operator can review boundaries and override automatic control.
+
+System overview
+The sprayer includes a vehicle-position receiver, a field-data store, a controller, a boom divided into independently controlled sections, and a valve or electrical actuator for each section. A sensor can indicate vehicle speed, boom height, section pressure, or valve state. The operator terminal receives a selected field map, application boundary, and overlap margin. The controller associates each section with a position offset relative to the vehicle reference point.
+
+Page 1 — Sprayer arrangement
+
+Position and section logic
+The controller estimates the location of each boom section using the current vehicle position and stored section offsets. A section can be enabled when its projected coverage area lies within an application boundary and has not been marked as treated. A section can be disabled when its projected coverage area intersects a mapped exclusion region or a previously treated swath. The controller may apply a configurable overlap allowance to accommodate location uncertainty or boom movement.
+
+When location quality falls below a stored threshold, the controller can freeze automatic switching, retain the current section state for a limited time, or return control to the operator. The selected response is shown on the operator terminal. A sensor that detects boom height may inhibit switching while the boom is raised above a configured transport height.
+
+The controller can debounce a section command so that short position fluctuations do not repeatedly open and close a valve. A minimum on-time and minimum off-time may be stored for each section. The operator may choose automatic, manual, or mixed mode. In mixed mode, automatic control applies only to selected sections, while other sections remain under manual control.
+
+Illustrative field use
+During a field pass, a previously treated swath intersects the projected coverage area of an outer section. The controller disables that section while maintaining application through other sections. Near a mapped exclusion region, the controller disables affected sections before their coverage enters the region. The operator terminal presents a map view and current section state. The operator can override the decision, and an override may remain active until the end of the pass.
+
+Page 2 — Section operation
+
+The system may store a record containing field identifier, time, location, commanded section state, and location-quality status. The record can be reviewed after operation. The system does not select an application material or prescribe a rate. Map data and boundaries are supplied or confirmed by the operator.
+
+CLAIMS
+1. An agricultural sprayer control system comprising a vehicle-position receiver, a field-data store, a boom having a plurality of independently controlled sections, and a controller configured to control the sections using a vehicle position and a stored application boundary.
+2. The system of claim 1, wherein the controller disables individual boom sections when their projected coverage intersects a previously treated swath.
+3. The system of claim 1, wherein the controller disables an affected section near a mapped exclusion region.
+4. The system of claim 1, further comprising an operator terminal configured to display section states and receive an overlap-margin setting.
+5. The system of claim 1, wherein automatic switching is inhibited when a location-quality value is below a selected threshold.
+6. A method of operating an agricultural sprayer comprising estimating a position of each boom section, comparing the estimated position with field data, and selectively commanding the sections.
+
+Page 3 — Illustrative claims

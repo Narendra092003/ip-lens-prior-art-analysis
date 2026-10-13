@@ -1,0 +1,42 @@
+SYNTHETIC EXAMPLE — FICTIONAL DOCUMENT, NOT A REAL PATENT
+Title: Load-Responsive Control of a Continuously Variable Tractor Transmission
+
+ABSTRACT
+A tractor transmission control system selects a continuously variable transmission ratio using engine load, engine speed, ground speed, and an operator-selected work mode. A controller receives signals from sensors and calculates a desired ratio that maintains useful engine operation while meeting a requested travel speed. An operator terminal presents the selected mode and allows an operator to adjust response limits. The controller may smooth ratio changes, retain a prior setting when a sensor signal is unavailable, and provide a status indication. This fictional document is supplied only for software evaluation.
+
+DESCRIPTION
+Technical field
+The subject matter concerns control of a continuously variable transmission in an agricultural tractor. The tractor may pull a tillage implement, operate a loader, or travel between a field and a road.
+
+Background
+A transmission ratio chosen for one operating condition may be unsuitable when soil resistance or implement load changes. A driver may compensate by changing engine speed or travel-speed settings, but repeated manual adjustments can distract from steering and implement operation. Electronic control can assist while leaving the operator responsible for selecting a mode and supervising the machine.
+
+System overview
+The tractor includes an engine, a continuously variable transmission having an input member and an output member, a ground-speed sensor, an engine-speed sensor, and a signal representing engine torque or estimated engine load. A controller communicates with the transmission actuator and with an operator terminal in the cab. The controller receives sensor data at a recurring interval. The interval may be fixed or may vary with machine speed.
+
+Page 1 — General arrangement
+
+Control operation
+The controller forms an engine load estimate from a torque signal, fuel command, or a combination of engine measurements. In a field-work mode, a target engine operating range and a requested ground speed are selected. The controller adjusts the transmission ratio to bring measured speed toward the requested speed while keeping the engine load estimate within a selected range. If the load rises above a first limit, the controller may reduce the requested rate of acceleration or select a ratio that allows the engine to recover. If load falls below a second limit, the controller may increase travel speed subject to the operator-selected limit.
+
+The controller may apply a dead band between load thresholds to avoid repeated changes when a measured value fluctuates near a threshold. A rate limiter constrains how quickly the ratio command may change. The parameters may be selected according to work mode, such as transport, draft work, or stationary power take-off operation. The operator terminal can show the active work mode, requested speed, and a warning when the controller uses a fallback value.
+
+Sensor handling
+A validity check identifies absent, delayed, or implausible sensor values. If the ground-speed signal becomes invalid, the controller holds the last valid ratio command for a limited interval and then transitions to a conservative setting. If the engine load signal becomes invalid, the controller disables load-responsive changes and retains operator control of the speed setting. A fault message is shown on the operator terminal. No control response is intended to replace the tractor's independent braking or engine protection systems.
+
+Illustrative field use
+During a pass across a field, increased resistance raises the engine load estimate. The controller reduces the rate of ratio change and maintains the requested engine range. When resistance decreases, the controller gradually returns toward the requested travel speed. The operator may change the mode or disable automatic ratio assistance at any time.
+
+Page 2 — Control and response
+
+The described implementation is illustrative. Sensor type, thresholds, timing, and transmission hardware may differ among tractors. The controller may be a dedicated electronic unit or a software task executed by a vehicle controller. A stored calibration can associate each work mode with load limits, ratio limits, and response rates. A service tool may read diagnostic values, but no remote service is required.
+
+CLAIMS
+1. A tractor transmission control system comprising a continuously variable transmission, an engine, a ground-speed sensor, an engine-load input, and a controller configured to command a transmission ratio based at least in part on a requested ground speed and a measured engine load.
+2. The system of claim 1, wherein the controller adjusts the transmission ratio when an engine load estimate crosses a selected threshold.
+3. The system of claim 1, further comprising an operator terminal configured to receive a work-mode selection and display a status of automatic ratio assistance.
+4. The system of claim 1, wherein a rate limiter restricts a change in the commanded transmission ratio between successive control intervals.
+5. The system of claim 1, wherein the controller disables load-responsive ratio changes when the engine-load input is determined to be invalid.
+6. A method of operating a tractor transmission comprising receiving ground-speed and engine-load signals, selecting a work mode, calculating a ratio command using the signals and the selected mode, and transmitting the ratio command to a transmission actuator.
+
+Page 3 — Illustrative claims

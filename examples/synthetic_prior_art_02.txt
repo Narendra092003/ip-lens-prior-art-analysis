@@ -1,0 +1,44 @@
+SYNTHETIC EXAMPLE — FICTIONAL DOCUMENT, NOT A REAL PATENT
+Title: Draft-Responsive Three-Point Hitch Control
+
+ABSTRACT
+A tractor hitch system controls the vertical position of a three-point hitch in response to a draft-force measurement and an operator-selected working depth. A controller receives sensor data from a drawbar load sensor, hydraulic pressure sensor, or implement-mounted sensor and commands a hitch valve. An operator terminal provides a draft-control setting and displays hitch status. The controller uses a target draft band and bounded corrections to reduce abrupt movement when soil resistance changes. This fictional document is for retrieval evaluation only.
+
+DESCRIPTION
+Technical field
+The disclosure concerns an electronically controlled three-point hitch of an agricultural tractor and an implement coupled to the hitch.
+
+Background
+Soil resistance can change across a field because of soil composition, moisture, slope, residue, or implement engagement. When the implement is held at a fixed height, draft may vary substantially. A driver can manually adjust hitch position, but repeated adjustment may be difficult while steering and monitoring other equipment. Draft control provides a way to change implement depth in response to measured pull.
+
+System overview
+A tractor includes upper and lower hitch links, hydraulic lift cylinders, a valve assembly, and a controller. A draft sensor measures force transmitted through a link or a support member. One or more hydraulic pressure sensors may provide an additional estimate of lift load. A position sensor measures hitch height. The operator terminal receives a desired working depth, a draft-control sensitivity, and a transport or field mode.
+
+Page 1 — Hitch system
+
+Draft regulation
+During field operation, the controller compares a measured draft value with a target draft band. When measured draft exceeds the upper edge of the band, the controller commands the valve to raise the hitch by a bounded amount. When measured draft falls below the lower edge of the band, the controller may lower the hitch toward the selected working depth. If the value remains inside the band, the controller maintains the present hitch position or makes a small correction.
+
+A persistence timer can require an excessive draft condition to continue for a selected interval before a correction begins. A separate return rate limits lowering after a reduction in resistance. The sensitivity setting determines the size of the correction and the width of the target band. The controller can use a position limit to keep the implement within a configured lift range.
+
+The operator terminal communicates status through a field-work page. It may display a draft value, a hitch-position indicator, and the selected sensitivity. The operator can select manual mode, in which the valve responds to manual controls, or automatic draft mode. A mode transition may retain the current hitch position to avoid a sudden movement.
+
+Sensor and fault handling
+The controller checks whether sensor values are within stored ranges and whether successive values change at a plausible rate. If the draft-force signal is unavailable, the controller may hold a safe position and alert the operator. If position feedback is unavailable, automatic movement is disabled. The hitch has independent mechanical and hydraulic limits.
+
+Illustrative operation
+At a compacted patch, measured draft rises above the selected band. The controller raises the implement incrementally. When the tractor leaves the patch, the controller lowers the implement gradually, subject to the selected working-depth limit. The operator remains able to interrupt the sequence.
+
+Page 2 — Draft control
+
+The control may be calibrated for different implements. Calibration can include link geometry, sensor offsets, and a maximum permitted correction. The controller may store a calibration identifier with the work mode. The system does not determine whether a particular depth is agronomically appropriate; the operator selects and supervises operation.
+
+CLAIMS
+1. A tractor hitch control system comprising a three-point hitch, a hydraulic actuator, a draft sensor, a position sensor, and a controller configured to command hitch movement using a measured draft value and a selected working depth.
+2. The system of claim 1, wherein the controller raises the hitch when measured draft exceeds an upper limit of a target draft band.
+3. The system of claim 1, wherein the controller lowers the hitch when measured draft is below a lower limit of the target draft band.
+4. The system of claim 1, further comprising an operator terminal configured to receive a draft-control sensitivity setting and display hitch status.
+5. The system of claim 1, wherein a persistence timer delays a hitch correction until an out-of-band draft condition lasts for a selected interval.
+6. A method of controlling a tractor hitch comprising measuring draft force, comparing the measured draft force with a target band, and commanding a bounded hitch-position correction based on the comparison.
+
+Page 3 — Illustrative claims

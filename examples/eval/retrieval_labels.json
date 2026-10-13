@@ -1,1 +1,142 @@
-﻿[]
+[
+  {
+    "query_id": "q01",
+    "claim": "A tractor controller that adjusts the transmission ratio based on measured engine load.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_01.txt",
+        "phrase": "adjusts the transmission ratio"
+      }
+    ]
+  },
+  {
+    "query_id": "q02",
+    "claim": "The operator display warns the driver when the transmission controller falls back to a default value because a sensor signal is invalid.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_01.txt",
+        "phrase": "warning when the controller uses a fallback value"
+      }
+    ]
+  },
+  {
+    "query_id": "q03",
+    "claim": "A draft-control system raises a hitch by a limited increment when draft exceeds a threshold.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_02.txt",
+        "phrase": "raise the hitch by a bounded amount"
+      }
+    ]
+  },
+  {
+    "query_id": "q04",
+    "claim": "The hitch controller compares sensed draft to a target associated with a selected working depth.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_02.txt",
+        "phrase": "measured draft value and a selected working depth"
+      }
+    ]
+  },
+  {
+    "query_id": "q05",
+    "claim": "A sprayer controller switches boom sections using location information and a stored treatment boundary.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_03.txt",
+        "phrase": "using a vehicle position and a stored application boundary"
+      }
+    ]
+  },
+  {
+    "query_id": "q06",
+    "claim": "The boom controller suppresses spray when the vehicle approaches an area designated for no application.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_03.txt",
+        "phrase": "mapped exclusion region"
+      }
+    ]
+  },
+  {
+    "query_id": "q07",
+    "claim": "A tractor controller can run a previously configured sequence for turning at the end of a field.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_04.txt",
+        "phrase": "execute a stored headland sequence"
+      }
+    ]
+  },
+  {
+    "query_id": "q08",
+    "claim": "The automated turn sequence controls the implement so it is lowered after the turn.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_04.txt",
+        "phrase": "lowering the implement"
+      }
+    ]
+  },
+  {
+    "query_id": "q09",
+    "claim": "A central tire system selects a field or road pressure setting and adjusts the tire toward it.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_05.txt",
+        "phrase": "adjust tire pressure toward a selected field or road target"
+      }
+    ]
+  },
+  {
+    "query_id": "q10",
+    "claim": "The system waits to vent a tire until vehicle speed is below its configured limit.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_05.txt",
+        "phrase": "inhibit pressure release when a vehicle-speed value exceeds a selected limit"
+      }
+    ]
+  },
+  {
+    "query_id": "q11",
+    "claim": "A transmission controller estimates engine loading using engine and vehicle measurements.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_01.txt",
+        "phrase": "engine load estimate"
+      }
+    ]
+  },
+  {
+    "query_id": "q12",
+    "claim": "Draft control modulates hitch position to keep measured pulling force within a desired range.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_02.txt",
+        "phrase": "measured draft value with a target draft band"
+      }
+    ]
+  },
+  {
+    "query_id": "q13",
+    "claim": "The sprayer uses its logged coverage history to avoid applying twice over a treated strip.",
+    "relevant": [
+      {
+        "filename": "synthetic_prior_art_03.txt",
+        "phrase": "previously treated swath"
+      }
+    ]
+  },
+  {
+    "query_id": "q14",
+    "claim": "A camera detects the physical end of a crop row and confirms a turn trigger independently of a mapped boundary.",
+    "relevant": []
+  },
+  {
+    "query_id": "q15",
+    "claim": "An exhaust after-treatment controller reduces methane emissions using a catalytic conversion chamber.",
+    "relevant": []
+  }
+]

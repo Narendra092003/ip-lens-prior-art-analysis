@@ -1,0 +1,52 @@
+SYNTHETIC EXAMPLE — FICTIONAL DOCUMENT, NOT A REAL PATENT
+Title: Controller for Central Tire-Pressure Adjustment Between Field and Road Operation
+
+Abstract
+A vehicle tire-pressure management system adjusts pressure in multiple tires between a field target and a road target. A controller receives a selected operating mode from an operator terminal, reads tire-pressure sensors, and commands wheel-end valves and an air supply to add or release air. The controller can condition a pressure change on vehicle speed, implement state, and a pressure difference threshold. When a fault or unsafe operating condition is detected, the controller pauses adjustment and provides an indication.
+
+Description
+Agricultural vehicles often travel between a firm road and soil that benefits from a larger tire footprint. A pressure appropriate for road travel may be higher than a pressure selected for field work. Manual adjustment at each wheel can be slow and may lead to unequal pressure settings.
+
+In one example, a tractor includes a compressor and an air reservoir connected through a distribution manifold to wheel-end rotary couplings. A valve assembly at each wheel selectively connects the tire to the reservoir, to an exhaust path, or to neither path. A pressure sensor measures pressure in the tire or in a passage representative of tire pressure. The controller stores a field target and a road target for each axle. Targets may differ by axle to account for load distribution.
+
+The operator terminal presents a field mode and a road mode. In response to a mode selection, the controller checks sensor status and calculates a pressure difference between each measured pressure and the corresponding target. If the difference exceeds a deadband, the controller opens the relevant valve for a limited interval, closes it, and measures pressure again. Repeated short adjustments reduce overshoot caused by delayed pressure readings or changing air flow.
+
+Adjustment can be conditioned on vehicle speed. The controller may permit pressure release only when the vehicle is stopped or moving below a selected limit, while allowing pressure addition under a separately selected condition. The controller may also wait until a connected implement is raised or until the transmission controller reports a low-load state. These conditions are examples and can be configured for a vehicle.
+
+During field operation, a pressure sensor can report a value outside an allowed range because of a leak or sensor fault. The controller may isolate one wheel circuit, stop adjustment for that circuit, and display the measured value and fault status. A pressure mismatch between left and right tires on an axle can also cause a warning. The system does not infer that tire pressure alone determines vehicle safety; the displayed information is an aid to the operator.
+
+Page separator: 
+Detailed Description
+The controller can identify wheels by axle and side. Each stored target record may include a target pressure, an allowed range, a maximum adjustment duration, and conditions for enabling the associated valve. A vehicle configuration input specifies tire size or another calibration value used to interpret sensor data. If no valid configuration is available, the controller can inhibit automatic pressure adjustment and request operator attention.
+
+A pressure adjustment cycle begins by sampling the pressure sensors while the wheel valves are closed. The controller validates the samples using a plausibility range and a rate-of-change check. It then selects a target according to the active mode and computes a difference for each wheel. For pressure addition, the controller may run the compressor or open a reservoir valve. For pressure reduction, the controller opens an exhaust valve for a pulse whose duration is based on the pressure difference. Following each pulse, a settling interval allows pressure to stabilize before another measurement is used.
+
+The controller can sequence wheels rather than adjust every tire at once. Sequential operation limits demand on the compressor and allows the reservoir pressure to recover. A display can show progress by axle, measured values, target values, and an indication that the system is waiting for an enabling condition. An operator can cancel a cycle at any time. A manually selected pressure can be treated as a temporary target or can be saved as a configured value, depending on a setting.
+
+For road operation, the system can require a confirmation before reducing a field pressure target to a road target. For field operation, it can check that the requested target is within a configured minimum and maximum. A change in vehicle speed during adjustment can cause the controller to close the valves and suspend the cycle. Adjustment resumes only after the enabling conditions are satisfied again.
+
+The controller may communicate with a transmission controller, an implement controller, or a vehicle display over an in-vehicle communication bus. The message may provide only an operating state, such as moving, stopped, implement raised, or faulted. Loss of communication can be treated as an unavailable condition. The pressure system can then hold its valves closed and show that automatic adjustment is unavailable.
+
+A service procedure can test a pressure sensor against a reference gauge and test valve response while the vehicle is stationary. A log may record mode selections, target values, measured values, and detected faults. Such a log supports maintenance and does not replace inspection of the tire or wheel assembly.
+
+Page separator: 
+Claims
+1. A tire-pressure adjustment system for an agricultural vehicle, comprising: a pressure sensor configured to measure pressure of a vehicle tire; an air supply; a valve fluidly coupled to the tire and the air supply; an operator terminal configured to receive a field or road mode selection; and a controller configured to select a target pressure associated with the selected mode, compare the measured pressure with the target pressure, and command the valve to adjust tire pressure toward a selected field or road target.
+
+2. The system of claim 1, wherein the controller is configured to inhibit pressure release when a vehicle-speed value exceeds a selected limit.
+
+3. The system of claim 1, wherein the controller commands a plurality of wheel valves in sequence and waits for a pressure measurement after each valve is closed.
+
+4. The system of claim 1, wherein the controller selects different target pressures for a front axle and a rear axle.
+
+5. The system of claim 1, wherein the controller pauses adjustment when a pressure sensor sample is outside a plausibility range.
+
+6. The system of claim 1, further comprising a rotary coupling configured to transfer air between a vehicle-mounted conduit and a rotating wheel assembly.
+
+7. The system of claim 1, wherein the operator terminal displays a measured pressure, the target pressure, and a status indicating that an enabling condition is not satisfied.
+
+8. The system of claim 1, wherein the controller closes the valve and suspends adjustment in response to a change in vehicle speed during a pressure adjustment cycle.
+
+9. A method of adjusting tire pressure on an agricultural vehicle, comprising receiving a field or road mode selection, selecting a corresponding pressure target, measuring tire pressure, and controlling an air valve based on a difference between the measured tire pressure and the corresponding pressure target.
+
+10. The method of claim 9, further comprising recording a fault indication when pressure adjustment is paused because of a sensor fault or a vehicle operating condition.
