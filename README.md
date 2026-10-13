@@ -36,7 +36,11 @@ Ingest all supported documents in a folder (for example, the real-patent demo se
 uv run python scripts/ingest_folder.py examples/real
 ```
 
-The Streamlit interface command will be documented when its phase is implemented.
+In a second terminal, start the Streamlit interface with:
+
+```powershell
+uv run streamlit run frontend/streamlit_app.py
+```
 
 ## Scope and limitations
 
