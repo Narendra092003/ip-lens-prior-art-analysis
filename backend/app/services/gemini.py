@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+import re
 import time
+from pathlib import Path
 from typing import Any, Sequence, TypeVar
 
 from google import genai
@@ -16,6 +19,10 @@ T = TypeVar("T", bound=BaseModel)
 
 _REQUEST_TIMEOUT_MS = 30_000
 _MAX_RETRIES = 2
+_DISCLOSURE_PROMPT_PATH = (
+    Path(__file__).resolve().parents[1] / "prompts" / "disclosure_extract_v1.md"
+)
+logger = logging.getLogger(__name__)
 
 
 class GeminiServiceError(RuntimeError):
@@ -42,12 +49,20 @@ class GeminiProviderError(GeminiServiceError):
     """Raised for non-transient or exhausted provider failures."""
 
 
+class _GeminiDisclosureExtractResponse(BaseModel):
+    """Provider schema kept separate from the strict public API contract."""
+
+    invention_summary: str
+    claims: list[str]
+
+
 def _generate_structured(
     prompt: str,
     response_model: type[T],
     *,
     settings: Settings | None = None,
     client: Any | None = None,
+    response_schema: type[BaseModel] | None = None,
 ) -> T:
     """Generate JSON with Gemini's schema mode and validate it as a Pydantic model."""
     active_settings = settings or get_settings()
@@ -70,16 +85,18 @@ def _generate_structured(
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=response_model,
+                    response_schema=response_schema or response_model,
                 ),
             )
         except Exception as exc:
             category = _transient_category(exc)
             if category is None:
+                _log_provider_failure(exc, prompt=prompt, api_key=api_key)
                 raise GeminiProviderError("Gemini could not complete the request.") from exc
             if attempt < _MAX_RETRIES:
                 time.sleep(0.25 * (2**attempt))
                 continue
+            _log_provider_failure(exc, prompt=prompt, api_key=api_key)
             if category == "rate_limit":
                 raise GeminiRateLimitedError("Gemini rate limit persisted after retries.") from exc
             if category == "timeout":
@@ -97,12 +114,18 @@ def _parse_response(response: Any, response_model: type[T]) -> T:
         if parsed is not None:
             if isinstance(parsed, response_model):
                 return parsed
+            if isinstance(parsed, BaseModel):
+                parsed = parsed.model_dump()
             return response_model.model_validate(parsed)
         output_text = response.text
         if not output_text:
             raise ValueError("Structured response is empty")
         return response_model.model_validate_json(output_text)
     except (ValidationError, ValueError, TypeError, AttributeError) as exc:
+        logger.warning(
+            "Gemini structured response validation failed: error_class=%s",
+            type(exc).__name__,
+        )
         raise GeminiMalformedOutputError(
             "Gemini returned malformed structured output."
         ) from exc
@@ -135,9 +158,60 @@ def _status_code(error: Exception) -> int | None:
     return None
 
 
-def structure_disclosure(text: str) -> DisclosureExtractResponse:
-    """Phase 10 stub: build and send the disclosure-structuring prompt."""
-    raise NotImplementedError("structure_disclosure is implemented in Phase 10")
+def _log_provider_failure(error: Exception, *, prompt: str, api_key: str) -> None:
+    """Log provider diagnostics while removing request data and credentials."""
+    message = getattr(error, "message", None)
+    if not isinstance(message, str) or not message:
+        message = "(provider message unavailable)"
+    if prompt:
+        message = message.replace(prompt, "[redacted prompt]")
+        disclosure_marker = "<disclosure_text>\n"
+        if disclosure_marker in prompt:
+            disclosure = prompt.split(disclosure_marker, 1)[1].split(
+                "\n</disclosure_text>", 1
+            )[0]
+            if disclosure:
+                message = message.replace(disclosure, "[redacted disclosure]")
+    if api_key:
+        message = message.replace(api_key, "[redacted key]")
+    logger.warning(
+        "Gemini provider request failed: error_class=%s status_code=%s message=%s",
+        type(error).__name__,
+        _status_code(error),
+        message,
+    )
+
+
+def _load_disclosure_prompt_template() -> str:
+    """Load the versioned disclosure extraction prompt from the application package."""
+    return _DISCLOSURE_PROMPT_PATH.read_text(encoding="utf-8")
+
+
+def structure_disclosure(
+    text: str,
+    *,
+    settings: Settings | None = None,
+    client: Any | None = None,
+) -> DisclosureExtractResponse:
+    """Summarize a disclosure and propose claims for analyst review."""
+    template = _load_disclosure_prompt_template()
+    prompt = (
+        f"{template.rstrip()}\n\n"
+        "<disclosure_text>\n"
+        f"{text}\n"
+        "</disclosure_text>"
+    )
+    result = _generate_structured(
+        prompt,
+        DisclosureExtractResponse,
+        settings=settings,
+        client=client,
+        response_schema=_GeminiDisclosureExtractResponse,
+    )
+    return DisclosureExtractResponse(
+        invention_summary=result.invention_summary,
+        claims=[re.sub(r"^\s*\d+\.\s+", "", claim) for claim in result.claims],
+    )
 
 
 def compare_claim(

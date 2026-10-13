@@ -2,11 +2,13 @@
 
 from collections.abc import Iterator
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from backend.app.config import Settings, get_settings
 from backend.app.schemas import (
     CorpusResponse,
+    DisclosureExtractRequest,
+    DisclosureExtractResponse,
     DocumentFailure,
     DocumentUploadResponse,
     HealthResponse,
@@ -14,6 +16,14 @@ from backend.app.schemas import (
 )
 from backend.app.services.documents import DocumentExtractionError
 from backend.app.services.ingestion import IngestionService, UploadTooLargeError
+from backend.app.services.gemini import (
+    GeminiMalformedOutputError,
+    GeminiNotConfiguredError,
+    GeminiProviderError,
+    GeminiRateLimitedError,
+    GeminiTimeoutError,
+    structure_disclosure,
+)
 from backend.app.services.vector_store import VectorStore
 
 router = APIRouter()
@@ -53,6 +63,27 @@ def corpus(
 ) -> CorpusResponse:
     """Return the indexed passage count and local storage mode."""
     return CorpusResponse(passage_count=vector_store.count())
+
+
+@router.post(
+    "/api/disclosures/extract",
+    response_model=DisclosureExtractResponse,
+)
+def extract_disclosure(
+    request: DisclosureExtractRequest,
+    settings: Settings = Depends(get_settings_dependency),
+) -> DisclosureExtractResponse:
+    """Structure disclosure text into a summary and candidate claims for review."""
+    try:
+        return structure_disclosure(request.disclosure_text, settings=settings)
+    except GeminiNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except GeminiRateLimitedError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except GeminiTimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except (GeminiMalformedOutputError, GeminiProviderError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.post("/api/documents", response_model=DocumentUploadResponse)

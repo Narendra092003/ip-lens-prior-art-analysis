@@ -1,9 +1,12 @@
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.api import get_settings_dependency, get_vector_store
 from backend.app.config import Settings
 from backend.app.main import app
+from backend.app.services import gemini
 from backend.app.services.vector_store import VectorStore
 
 
@@ -120,3 +123,49 @@ def test_mixed_upload_keeps_success_when_another_file_fails(api_client) -> None:
     body = response.json()
     assert [item["filename"] for item in body["indexed"]] == ["valid.txt"]
     assert [item["filename"] for item in body["failures"]] == ["unsupported.docx"]
+
+
+def test_disclosure_extract_returns_structured_result_with_fake_gemini(
+    api_client, monkeypatch
+) -> None:
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            self.call = kwargs
+            return SimpleNamespace(
+                parsed=None,
+                text='{"invention_summary":"A pressure sensor","claims":["1. A pressure sensor."]}',
+            )
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.models = FakeModels()
+
+    client, _ = api_client
+    monkeypatch.setattr(gemini.genai, "Client", FakeClient)
+
+    response = client.post(
+        "/api/disclosures/extract",
+        json={"disclosure_text": "A sensor measures pressure in a chamber."},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "invention_summary": "A pressure sensor",
+        "claims": ["A pressure sensor."],
+    }
+
+
+def test_disclosure_extract_returns_clear_error_when_gemini_not_configured(api_client) -> None:
+    client, _ = api_client
+    app.dependency_overrides[get_settings_dependency] = lambda: Settings(
+        _env_file=None,
+        gemini_api_key=None,
+    )
+
+    response = client.post(
+        "/api/disclosures/extract",
+        json={"disclosure_text": "A sensor measures pressure."},
+    )
+
+    assert response.status_code == 503
+    assert "GEMINI_API_KEY is not configured" in response.json()["detail"]

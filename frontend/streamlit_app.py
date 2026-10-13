@@ -130,7 +130,88 @@ elif api_ready:
     st.error("Could not load the corpus count from the API.")
 
 st.header("Disclosure")
-st.caption("Disclosure extraction and claim review will be added in a later phase.")
+st.caption(
+    "Disclosure text is sent to the configured Gemini API for structured extraction. "
+    "Review the generated summary and claims before using them."
+)
+
+if "disclosure_summary" not in st.session_state:
+    st.session_state.disclosure_summary = ""
+if "reviewed_claims" not in st.session_state:
+    st.session_state.reviewed_claims = []
+
+disclosure_text = st.text_area(
+    "Invention disclosure",
+    key="disclosure_text",
+    height=220,
+    placeholder="Describe the problem, components, how they work together, and any technical advantages.",
+)
+
+if st.button(
+    "Extract summary and candidate claims",
+    disabled=not api_ready or not disclosure_text.strip(),
+):
+    try:
+        with st.spinner("Structuring the disclosure with Gemini…"):
+            extraction_response = requests.post(
+                f"{api_base_url}/api/disclosures/extract",
+                json={"disclosure_text": disclosure_text},
+                timeout=(5, 120),
+            )
+        if extraction_response.ok:
+            extracted = extraction_response.json()
+            st.session_state.disclosure_summary = extracted["invention_summary"]
+            st.session_state.reviewed_claims = extracted["claims"]
+            for index in range(100):
+                st.session_state.pop(f"reviewed_claim_{index}", None)
+            st.success("Disclosure structured. Review and edit the result below.")
+        else:
+            try:
+                detail = extraction_response.json().get("detail", "")
+            except ValueError:
+                detail = ""
+            if extraction_response.status_code == 503:
+                st.error("Gemini is not configured. Set GEMINI_API_KEY in .env and restart the API.")
+            elif extraction_response.status_code == 429:
+                st.error("Gemini is rate limited. Wait briefly, then try again.")
+            else:
+                st.error(detail or f"Disclosure extraction failed (HTTP {extraction_response.status_code}).")
+    except requests.RequestException:
+        st.error("The extraction request failed. Confirm the API is running and try again.")
+
+if st.session_state.disclosure_summary:
+    st.subheader("Invention summary")
+    st.write(st.session_state.disclosure_summary)
+    st.subheader("Candidate claims for review")
+    edited_claims: list[str] = []
+    remove_index: int | None = None
+    for index, claim in enumerate(st.session_state.reviewed_claims):
+        claim_column, remove_column = st.columns([10, 1])
+        with claim_column:
+            edited = st.text_input(
+                f"Claim {index + 1}",
+                value=claim,
+                key=f"reviewed_claim_{index}",
+            )
+            edited_claims.append(edited)
+        with remove_column:
+            st.write("")
+            if st.button("Remove", key=f"remove_claim_{index}"):
+                remove_index = index
+
+    if remove_index is not None:
+        st.session_state.reviewed_claims = [
+            claim for index, claim in enumerate(edited_claims) if index != remove_index
+        ]
+        for index in range(len(edited_claims)):
+            st.session_state.pop(f"reviewed_claim_{index}", None)
+        st.rerun()
+
+    if st.button("Add claim", key="add_reviewed_claim"):
+        st.session_state.reviewed_claims = [*edited_claims, ""]
+        st.rerun()
+    else:
+        st.session_state.reviewed_claims = edited_claims
 
 st.header("Results")
 st.caption("Claim findings, evidence, and report exports will be added in a later phase.")
