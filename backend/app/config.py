@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=1200, ge=100, le=100_000)
     chunk_overlap: int = Field(default=180, ge=0, le=99_999)
     default_top_k: int = Field(default=4, ge=1, le=10)
-    min_similarity: int = Field(default=35, ge=0, le=100)
+    min_similarity: int = Field(default=50, ge=0, le=100)
     index_languages: set[str] = Field(default_factory=lambda: {"en"})
 
     @field_validator("gemini_api_key", mode="before")

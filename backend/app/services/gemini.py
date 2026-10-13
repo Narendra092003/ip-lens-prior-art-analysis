@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
@@ -10,7 +11,7 @@ from typing import Any, Sequence, TypeVar
 
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from backend.app.config import Settings, get_settings
 from backend.app.schemas import DisclosureExtractResponse
@@ -19,9 +20,12 @@ T = TypeVar("T", bound=BaseModel)
 
 _REQUEST_TIMEOUT_MS = 30_000
 _MAX_RETRIES = 2
+# A low temperature makes repeated extraction wording and claim ordering steadier.
+_DISCLOSURE_TEMPERATURE = 0.1
 _DISCLOSURE_PROMPT_PATH = (
     Path(__file__).resolve().parents[1] / "prompts" / "disclosure_extract_v1.md"
 )
+_PROMPT_DIRECTORY = Path(__file__).resolve().parents[1] / "prompts"
 logger = logging.getLogger(__name__)
 
 
@@ -56,6 +60,17 @@ class _GeminiDisclosureExtractResponse(BaseModel):
     claims: list[str]
 
 
+class ClaimComparisonResult(BaseModel):
+    """Validated model output for comparing one claim with its retrieved evidence."""
+
+    shared_elements: list[str]
+    missing_elements: list[str]
+    coverage_estimate: int = Field(ge=0, le=100)
+    assessment: str
+    uncertainty: str
+    cited_chunk_ids: list[str]
+
+
 def _generate_structured(
     prompt: str,
     response_model: type[T],
@@ -63,6 +78,7 @@ def _generate_structured(
     settings: Settings | None = None,
     client: Any | None = None,
     response_schema: type[BaseModel] | None = None,
+    temperature: float | None = None,
 ) -> T:
     """Generate JSON with Gemini's schema mode and validate it as a Pydantic model."""
     active_settings = settings or get_settings()
@@ -86,6 +102,7 @@ def _generate_structured(
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=response_schema or response_model,
+                    **({"temperature": temperature} if temperature is not None else {}),
                 ),
             )
         except Exception as exc:
@@ -207,6 +224,7 @@ def structure_disclosure(
         settings=settings,
         client=client,
         response_schema=_GeminiDisclosureExtractResponse,
+        temperature=_DISCLOSURE_TEMPERATURE,
     )
     return DisclosureExtractResponse(
         invention_summary=result.invention_summary,
@@ -216,8 +234,53 @@ def structure_disclosure(
 
 def compare_claim(
     claim: BaseModel,
-    passages: Sequence[BaseModel],
+    passages: Sequence[Any],
     prompt_version: str = "v1",
-) -> BaseModel:
-    """Phase 12 stub: compare a reviewed claim against its retrieved passages."""
-    raise NotImplementedError("compare_claim is implemented in Phase 12")
+    *,
+    settings: Settings | None = None,
+    client: Any | None = None,
+) -> ClaimComparisonResult:
+    """Compare one reviewed claim against only the passages retrieved for it."""
+    template = _load_claim_compare_prompt_template(prompt_version)
+    claim_payload = json.dumps(
+        {
+            "claim_id": getattr(claim, "claim_id", ""),
+            "text": getattr(claim, "text", ""),
+        },
+        ensure_ascii=False,
+    )
+    passage_blocks = []
+    for passage in passages:
+        passage_blocks.append(
+            "<passage>\n"
+            "chunk_id: "
+            f"{json.dumps(str(getattr(passage, 'chunk_id', '')), ensure_ascii=False)}\n"
+            "text_json: "
+            f"{json.dumps(str(getattr(passage, 'excerpt', '')), ensure_ascii=False)}\n"
+            "</passage>"
+        )
+    passages_text = "\n".join(passage_blocks)
+    prompt = (
+        f"{template.rstrip()}\n\n"
+        "<reviewed_claim>\n"
+        f"{claim_payload}\n"
+        "</reviewed_claim>\n\n"
+        "<retrieved_passages>\n"
+        f"{passages_text}\n"
+        "</retrieved_passages>"
+    )
+    return _generate_structured(
+        prompt,
+        ClaimComparisonResult,
+        settings=settings,
+        client=client,
+    )
+
+
+def _load_claim_compare_prompt_template(prompt_version: str = "v1") -> str:
+    """Load a versioned claim-comparison template, rejecting unsafe path values."""
+    if not re.fullmatch(r"v[1-9][0-9]*", prompt_version):
+        raise ValueError("prompt_version must look like 'v1'")
+    return (_PROMPT_DIRECTORY / f"claim_compare_{prompt_version}.md").read_text(
+        encoding="utf-8"
+    )
