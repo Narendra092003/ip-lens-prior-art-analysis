@@ -38,14 +38,29 @@ jobs:
           readme_path.write_text(header.rstrip() + "\n\n" + readme, encoding="utf-8")
           PY
 
+      - name: Check Hugging Face credentials
+        id: hf_credentials
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+        run: |
+          missing=()
+          [[ -n "$HF_TOKEN" ]] || missing+=(HF_TOKEN)
+          [[ -n "$HF_USERNAME" ]] || missing+=(HF_USERNAME)
+          if (( ${#missing[@]} == 0 )); then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Hugging Face push: missing ${missing[*]}."
+          fi
+
       - name: Push tested image sources to Hugging Face
+        if: steps.hf_credentials.outputs.available == 'true'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_USERNAME: ${{ secrets.HF_USERNAME }}
         run: |
           set -euo pipefail
-          test -n "$HF_TOKEN"
-          test -n "$HF_USERNAME"
           git clone \
             "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/ip-lens" \
             hf-space
