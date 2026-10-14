@@ -1,12 +1,15 @@
-# IP Lens — Documentation Index
+# IP Lens: AI Agent Platform for Patent & Prior-Art Analysis — Documentation Index
 
-**Project:** IP Lens — Multi-Agent Prior-Art Search & Novelty Triage  
-**Purpose:** A structured specification for building a portfolio-quality patent-analysis demo one service at a time.  
+**Project:** IP Lens: AI Agent Platform for Patent & Prior-Art Analysis
+
+**Purpose:** A structured specification for building a portfolio-quality patent-analysis demo one service at a time.
 **Primary reader:** A developer building the project with Visual Studio Code and an AI coding assistant.
 
 ## Source of truth
 
 [`../PROJECT_SPECIFICATION.md`](../PROJECT_SPECIFICATION.md) owns the product scope, technical requirements, API contracts, acceptance criteria, and ordered implementation phases. The documents below explain those requirements in more detail. If they ever disagree, follow the project specification and correct the supporting document.
+
+[`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md) describes the implemented modules, routes, status values, settings and deployment. It is checked against the current code.
 
 ## Reading order
 

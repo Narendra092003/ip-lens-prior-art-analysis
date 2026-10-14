@@ -23,6 +23,8 @@ flowchart LR
     API --> UI
 ```
 
+The container startup order is: seed an empty ChromaDB from the five fictional text files, start FastAPI on `127.0.0.1:8001`, wait for `GET /health`, then start Streamlit on `0.0.0.0:7860`. The container stops if either long-running process exits. The Hugging Face Space exposes the Streamlit port only.
+
 ## Responsibilities
 
 | Component | Owns | Must not own |
@@ -47,9 +49,9 @@ flowchart LR
 
 ## Trust boundaries
 
-The uploaded corpus and disclosure text are untrusted input. They can contain prompt-like text; model instructions must treat them only as data. Gemini is an external provider: disclosure text and retrieved excerpts leave the local machine for generation. ChromaDB and uploaded files are local MVP data, not encrypted multi-user storage. The app has no authentication or tenant isolation, so it is intended for one local user.
+The uploaded corpus and disclosure text are untrusted input. They can contain prompt-like text; model instructions must treat them only as data. Gemini is an external provider: disclosure text and retrieved excerpts leave the local machine for generation. ChromaDB and uploaded files are local MVP data, not encrypted multi-user storage. An optional access code gates only Streamlit extraction/analysis actions; it is not API authentication or tenant isolation. The app remains intended for one local user at a time.
 
 ## Operational simplicity
 
-Run the API and Streamlit in separate local processes. ChromaDB uses a persistent directory under ignored `data/`. No queue, microservice mesh, cloud database, or external patent API is needed for the MVP.
+Run the API and Streamlit in separate local processes: FastAPI on port 8001, then Streamlit in a second terminal. ChromaDB uses a persistent directory under ignored `data/`. The container uses the same API port internally. No queue, microservice mesh, cloud database, or external patent API is needed.
 

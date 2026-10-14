@@ -12,11 +12,11 @@ Patent documents are long and use specialized language. A researcher may need to
 
 ## Intended user and demo
 
-The MVP is for one local user, such as a student, inventor, or analyst preparing an early research review. The labeled evaluation uses fictional disclosures and synthetic prior-art documents. The live demo can additionally use a small set of real, published patents that the user downloads manually, listed in `examples/REAL_PATENTS.md`. It shows the full path from upload to a cited report without claiming that the collection represents all prior art.
+Local use is for one user, such as a student, inventor, or analyst preparing an early research review. The labeled evaluation and public container demo use fictional disclosures and synthetic prior-art documents. A local user may separately download published patents listed in `examples/REAL_PATENTS.md`; those files are not included in the container or public demo. No corpus represents all prior art. See [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md) for the implementation checked against the current code.
 
 ## MVP capabilities
 
-- Upload searchable PDF, TXT, and Markdown files (DOCX is a stretch goal).
+- Upload searchable PDF, TXT, and Markdown files. DOCX is unsupported.
 - Extract text and page/source markers, chunk it, and index it in persistent local ChromaDB.
 - Enter an invention disclosure and use Gemini to propose a summary and candidate claims.
 - Let the user review or edit those claims before starting analysis.
@@ -27,7 +27,7 @@ The MVP is for one local user, such as a student, inventor, or analyst preparing
 
 ## Deliberate limits
 
-The MVP does not crawl patent offices, search the public web, OCR scanned PDFs, manage users, run as a hosted multi-tenant service, or provide legal advice. It does not decide whether an invention is patentable or guarantee that a disclosure is novel. Its corpus is exactly the documents the user uploaded.
+The app does not crawl patent offices, search the public web, OCR scanned PDFs, provide enterprise authentication, or run as a multi-tenant service. A single-container public demo is available with fictional seed documents and optional safeguards. The app does not provide legal advice, decide patentability, or guarantee novelty. Its corpus is exactly the documents uploaded or synthetically seeded for that run.
 
 ## Why this is a good portfolio project
 

@@ -17,7 +17,7 @@ Search each reviewed claim separately. `top_k` defaults to 4 and accepts 1–10.
 similarity = clamp(round((1 - d) * 100), 0, 100)
 ```
 
-Only passages at or above `MIN_SIMILARITY` are useful; its default is **50**. This configurable value is a retrieval filter, not a calibrated probability. It was selected as the lowest tested threshold where both evaluation no-answer claims returned no passages; see [`EVALUATION.md`](./EVALUATION.md).
+Only passages at or above `MIN_SIMILARITY` are useful; its default is **50**. Retrieval requests use `top_k` (default `DEFAULT_TOP_K=4`, maximum 10) before applying the threshold. These configurable values are retrieval controls, not calibrated probabilities. Threshold 50 was selected as the lowest tested value where both evaluation no-answer claims returned no passages; see [`EVALUATION.md`](./EVALUATION.md).
 
 `ClaimRetrieval` keeps useful passages and the number dropped below threshold. Results carry chunk/document IDs, filename, title, page, excerpt, similarity, and raw distance. Re-indexing a document replaces its old chunks.
 

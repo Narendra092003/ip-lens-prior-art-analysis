@@ -4,6 +4,8 @@
 
 Convert a supported upload into searchable, page-aware chunks with source metadata. Supported formats are searchable PDF, TXT, and Markdown; DOCX is not supported. The service does not OCR scanned pages or make legal judgments.
 
+The public container seeds an empty corpus with `examples/synthetic_prior_art_*.txt` through this same ingestion service before starting FastAPI. It does not include or seed `examples/real/`.
+
 ## Processing path
 
 1. Check file extension and per-file size before parsing.

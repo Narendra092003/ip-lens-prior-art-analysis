@@ -2,6 +2,8 @@
 
 This fictional example illustrates the data path. Names and text below are synthetic and do not describe a real filing.
 
+In a container demo, startup automatically indexes the five `examples/synthetic_prior_art_*.txt` files only when the corpus is empty. The Streamlit UI shows the same four-step process; its public-demo warning is visible before any disclosure is submitted.
+
 ## Example input
 
 The researcher uploads `synthetic-cooling-prior-art.pdf` and enters a disclosure about a battery cooling plate that adjusts coolant flow using measurements from multiple cell zones. Gemini proposes candidate claims; the user edits and approves two claims.

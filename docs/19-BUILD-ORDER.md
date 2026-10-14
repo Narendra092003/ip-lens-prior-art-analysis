@@ -4,7 +4,7 @@ Section 12 of [`../PROJECT_SPECIFICATION.md`](../PROJECT_SPECIFICATION.md) is au
 
 ## Implementation status
 
-The following phases have been delivered in the current workspace.
+Phases 1–17 are complete in the current workspace. The interface redesign and single-container public-demo deployment have also been implemented; they are recorded after the original phase table so the historical 17-phase plan remains intact.
 
 | Phase | Delivered |
 |---:|---|
@@ -27,6 +27,14 @@ The following phases have been delivered in the current workspace.
 | 17 | Labeled retrieval and repeated v1/v2 prompt evaluations, sample reports, tests, and project documentation; five-run aggregate analysis timing remains uncollected |
 
 The analysis workflow and API default to prompt v2. Prompt v1 remains selectable.
+
+| Follow-on work | Status |
+|---|---|
+| Professional Streamlit redesign: open workflow panel, System sidebar, numbered sections, result metrics/status legend, evidence cards and theme | Implemented; UI-only changes preserve the HTTP API flow |
+| Local default API URL and two-terminal instructions on port 8001 | Implemented |
+| Docker image, synthetic-corpus seed script, non-root runtime, Chroma model preload, health wait and process supervision | Implemented; build requires a Docker-enabled environment |
+| Public-demo warning, optional access-code UI gate, four-claim cap, 2 MB upload cap and upload opt-in | Implemented and covered by unit tests; defaults preserve local behavior |
+| Hugging Face Space metadata and test-before-force-push workflow | Implemented; deployment requires `HF_TOKEN` and `HF_USERNAME` repository secrets |
 
 ## Original schedule (planning record)
 

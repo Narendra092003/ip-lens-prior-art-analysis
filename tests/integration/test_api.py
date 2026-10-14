@@ -58,6 +58,26 @@ def test_corpus_returns_vector_store_passage_count(api_client) -> None:
     assert response.json()["passage_count"] == 2
 
 
+def test_public_settings_returns_non_secret_analysis_settings(api_client) -> None:
+    client, _ = api_client
+
+    response = client.get("/api/settings")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "min_similarity": 50,
+        "default_top_k": 4,
+        "default_prompt_version": "v2",
+        "max_claims": 10,
+        "index_languages": ["en"],
+        "chunk_size": 1200,
+        "chunk_overlap": 180,
+        "gemini_model": "gemini-2.5-flash",
+    }
+    assert "test-secret-key-that-must-not-leak" not in response.text
+    assert "gemini_api_key" not in response.json()
+
+
 def test_document_upload_indexes_valid_text_file(api_client) -> None:
     client, _ = api_client
     content = (

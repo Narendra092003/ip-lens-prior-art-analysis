@@ -9,9 +9,9 @@
 | API | FastAPI + Uvicorn | Upload, extraction, analysis, corpus-status endpoints |
 | Vector store | ChromaDB persistent local client | Store and retrieve page-aware document chunks |
 | Generative model | Official `google-genai` SDK with Gemini | Disclosure structuring and evidence-bounded claim comparison |
-| UI | Streamlit | Corpus, disclosure review, results, and exports |
+| UI | Streamlit | Redesigned workflow and results; calls FastAPI over HTTP without importing backend services |
 | Validation | Pydantic | API contracts and structured model-output validation |
-| File parsing | `pypdf`, Python text decoding (`python-docx` for the stretch goal) | Searchable PDF, TXT, and Markdown extraction |
+| File parsing | `pypdf`, Python text decoding | Searchable PDF, TXT, and Markdown extraction; DOCX is unsupported |
 | Dependency manager | `uv` with committed `uv.lock` | Reproducible local environment and dependency resolution |
 
 ## Why these choices fit the MVP
@@ -26,6 +26,10 @@
 ## Boundaries
 
 The embedding function is local to ChromaDB; corpus text is not sent to a separate embedding service. The disclosure and retrieved excerpts are sent to the configured Gemini API for generation. The UI must say this before a user submits sensitive text. The Gemini SDK stays behind one backend client module so prompt, timeout, and provider-error handling are not duplicated in routes or Streamlit. That module exposes task functions with the project's own Pydantic types, so the provider can be replaced (for example by a model hosted inside a company tenant) without touching the workflow.
+
+## Deployment
+
+The Python 3.12 Docker image installs the locked dependencies with `uv`, preloads ChromaDB's default embedding model, and runs as a non-root user. The API binds to loopback port 8001; Streamlit is exposed on port 7860. An empty container corpus is seeded only from the synthetic prior-art text files.
 
 ## Dependency policy
 

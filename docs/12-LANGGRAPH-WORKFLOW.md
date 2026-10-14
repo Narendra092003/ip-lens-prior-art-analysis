@@ -19,6 +19,8 @@ flowchart LR
 
 The workflow defaults to comparison prompt v2. A request may choose v1. Retrieval is per claim and applies the configured `top_k` and `MIN_SIMILARITY` before routing.
 
+The status values are `evidence`, `no_evidence`, `no_supporting_passage`, and `unsupported`; only `evidence` findings contribute to the score. The redesigned Streamlit results view uses the same labels and explains each status.
+
 ## Finding statuses
 
 - `no_evidence`: no passage reached the threshold; Python creates this finding without a Gemini call.

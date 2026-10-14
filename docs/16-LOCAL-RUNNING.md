@@ -1,6 +1,6 @@
 # 16 — Running Locally
 
-The repository pins Python 3.12 in `.python-version`; use `uv` from the project root. The package metadata accepts Python 3.11–3.13, while the reproducible local setup uses the 3.12 pin.
+Use the repository's Python 3.12 pin and `uv` from the project root. Local development uses two terminals, with FastAPI on port 8001 so it does not clash with applications on port 8000.
 
 ## Configure
 
@@ -9,47 +9,60 @@ uv sync
 Copy-Item .env.example .env
 ```
 
-Set `GEMINI_API_KEY` in `.env`. `GEMINI_MODEL` selects the provider model. Other common settings include `API_BASE_URL`, `CHROMA_PATH`, `MAX_UPLOAD_MB`, `MAX_CLAIMS`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `DEFAULT_TOP_K`, `MIN_SIMILARITY` (default 50), and `INDEX_LANGUAGES` (default English). Keep `.env` private and ignored by Git.
+Set `GEMINI_API_KEY` in `.env`. `GEMINI_MODEL` defaults to `gemini-2.5-flash`. Other settings include `API_BASE_URL` (default `http://127.0.0.1:8001`), `CHROMA_PATH`, `MAX_UPLOAD_MB` (25), `MAX_CLAIMS` (10), `CHUNK_SIZE` (1200), `CHUNK_OVERLAP` (180), `DEFAULT_TOP_K` (4), `MIN_SIMILARITY` (50) and `INDEX_LANGUAGES` (English by default). Keep `.env` private and ignored by Git.
 
-## Start the API
+Demo variables are optional: `DEMO_MODE=true` shows the public-demo banner, `ACCESS_CODE` asks for a code before extraction or analysis, and `DEMO_ALLOW_UPLOADS=true` enables uploads in demo mode. With these variables unset, local behavior and the API limits remain unchanged.
 
-From the project root:
+## Terminal 1: start the API
 
 ```powershell
-uv run uvicorn backend.app.main:app --reload --port 8000
+uv run uvicorn backend.app.main:app --reload --port 8001
 ```
 
-Check `http://localhost:8000/health` and open `http://localhost:8000/docs` for the interactive API.
+Check `http://127.0.0.1:8001/health`; open `http://127.0.0.1:8001/docs` for the API explorer.
 
-## Start the Streamlit UI
-
-In a second terminal:
+## Terminal 2: start Streamlit
 
 ```powershell
 uv run streamlit run frontend/streamlit_app.py
 ```
 
-The interface calls FastAPI over HTTP. Upload searchable PDF, TXT, or Markdown files through Corpus; status information shows API/Gemini availability and indexed passage count.
+Open the local URL printed by Streamlit. The UI talks to FastAPI over HTTP using `API_BASE_URL`. Upload searchable PDF, TXT or Markdown files from the Corpus section. The System sidebar shows API/Gemini status and the indexed passage count.
 
-## Bulk ingestion and demo
+## Bulk ingest and synthetic demo
 
-To ingest supported files from a folder through the same service as the API:
+Upload the five `examples/synthetic_prior_art_*.txt` documents in the UI for the fictional demo. Paste `examples/demo_disclosure.md`, review or edit the claims, choose v2, run analysis and inspect the findings/exports. `examples/demo_claims.json` contains four prepared claims and IDs for reproducible API requests.
+
+For folder-based ingestion, create `examples/real/`, place your own supported documents there, then run:
 
 ```powershell
+New-Item -ItemType Directory -Force examples/real
 uv run python scripts/ingest_folder.py examples/real
 ```
 
-For the fictional demo, upload the five `examples/synthetic_prior_art_*.txt` files in the UI. Paste `examples/demo_disclosure.md` into Disclosure, then review the extracted claims or use the texts in `examples/demo_claims.json`. Choose v2 (the default), run analysis, and inspect findings and exports. The API preserves supplied claim IDs when claims are sent as `{ "claim_id", "text" }` objects.
+Files in `examples/real/` are ignored by Git and are excluded from the Docker image.
+
+## Run the container
+
+From the project root:
+
+```powershell
+docker build -t ip-lens .
+docker run -p 7860:7860 --env-file .env ip-lens
+```
+
+Open `http://localhost:7860`. The container automatically enables demo mode, seeds an empty store with the synthetic documents, starts the API on container loopback port 8001, waits for `/health`, and then starts Streamlit on port 7860. It exits if either process exits. The API is not published outside the container. Demo mode caps the API at four claims and 2 MB per file; uploads require `DEMO_ALLOW_UPLOADS=true`.
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| API does not start | Confirm `uv sync` completed and the terminal is in the project root. |
-| Streamlit cannot reach API | Check the API process and `API_BASE_URL`. |
-| Gemini unavailable | Check model/key configuration and the safe provider error; never share the key. |
-| Corpus disappears on restart | Check `CHROMA_PATH` points to project-root persistent storage. |
-| No useful evidence | Confirm files indexed and check the recorded threshold. Search covers only the uploaded corpus. |
-| German document rejected | Default `INDEX_LANGUAGES` is English; configure selected languages if appropriate. |
+| Wrong folder | Run commands from the repository root, next to `pyproject.toml` and `uv.lock`. |
+| Port 8001 already in use | Stop the existing process or choose a different API port and set the same `API_BASE_URL`. |
+| Streamlit cannot reach the API | Confirm terminal 1 is still running and `API_BASE_URL` is `http://127.0.0.1:8001`. |
+| Gemini unavailable | Check `GEMINI_API_KEY` and `GEMINI_MODEL`; do not paste the key into logs or chat. |
+| Rate limit/provider failure | Wait briefly and retry. Disclosure extraction returns a rate-limit response; analysis reports provider failure safely. |
+| Space is sleeping | Free-tier Spaces may cold-start; wait for it to wake, then reload. |
+| Corpus disappears | Check that `CHROMA_PATH` points to the local project `data/` directory; container storage may be ephemeral. |
 
-The public Gemini API receives disclosure text and retrieved excerpts. Do not use confidential invention material with this configuration. Scanned PDFs are unsupported because OCR is not implemented.
+Disclosure text and retrieved excerpts are sent to Gemini. Use only fictional or public material. Scanned PDFs are unsupported because OCR is not implemented.

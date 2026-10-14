@@ -39,6 +39,6 @@ The response contains the validated `AnalysisReport` and both exports generated 
 
 - Uploads accept PDF, TXT, and Markdown. Each file has a configured size limit (25 MB by default); individual extraction/indexing failures are returned in the upload response.
 - Analysis request validation, duplicate claim IDs, and exceeding `MAX_CLAIMS` return HTTP 400.
-- Gemini not configured returns 503; rate limiting returns 429; provider/unavailable failures return a safe 502/503 response.
+- Missing Gemini configuration returns 503. Disclosure extraction maps Gemini rate limiting to 429; analysis provider errors, including rate limits, use a safe 502 response.
 - Empty, unreadable, scanned-only, unsupported, and all-excluded-language documents return a per-file error reason.
 - Never return credentials, prompt text, disclosure contents, raw provider details, or temporary file paths.

@@ -21,6 +21,17 @@ class CorpusResponse(ContractModel):
     embedding_mode: str = "ChromaDB local default embedding function"
 
 
+class PublicSettingsResponse(ContractModel):
+    min_similarity: int = Field(ge=0, le=100)
+    default_top_k: int = Field(ge=1, le=10)
+    default_prompt_version: Literal["v1", "v2"]
+    max_claims: int = Field(ge=1)
+    index_languages: list[str]
+    chunk_size: int = Field(ge=100)
+    chunk_overlap: int = Field(ge=0)
+    gemini_model: str
+
+
 class IndexedDocument(ContractModel):
     document_id: str
     filename: str

@@ -76,7 +76,7 @@ Never paste the key into AI Chat, screenshots, source code, or GitHub. The appli
 After the API and Streamlit phases are complete, open two VS Code terminals in the project root. Start the API in the first:
 
 ```powershell
-uv run uvicorn backend.app.main:app --reload --port 8000
+uv run uvicorn backend.app.main:app --reload --port 8001
 ```
 
 Start Streamlit in the second:
@@ -85,7 +85,7 @@ Start Streamlit in the second:
 uv run streamlit run frontend/streamlit_app.py
 ```
 
-Open the local address Streamlit prints. FastAPI's interactive API page is at `http://localhost:8000/docs`. Stop a running process with **Ctrl+C** in its terminal.
+Open the local address Streamlit prints. FastAPI's health endpoint is at `http://127.0.0.1:8001/health` and its interactive API page is at `http://127.0.0.1:8001/docs`. Start Streamlit in a second terminal; `API_BASE_URL` defaults to `http://127.0.0.1:8001`. Stop a running process with **Ctrl+C** in its terminal.
 
 ## Troubleshooting
 

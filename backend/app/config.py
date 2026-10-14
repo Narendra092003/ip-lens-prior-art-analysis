@@ -19,7 +19,10 @@ class Settings(BaseSettings):
 
     gemini_api_key: SecretStr | None = Field(default=None, repr=False)
     gemini_model: str = "gemini-2.5-flash"
-    api_base_url: str = "http://127.0.0.1:8000"
+    api_base_url: str = "http://127.0.0.1:8001"
+    demo_mode: bool = False
+    access_code: str | None = Field(default=None, repr=False)
+    demo_allow_uploads: bool = False
     chroma_path: Path = Path("data/chroma")
     max_upload_mb: int = Field(default=25, ge=1, le=500)
     max_claims: int = Field(default=10, ge=1, le=100)

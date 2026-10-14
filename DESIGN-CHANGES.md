@@ -1,4 +1,4 @@
-# Design Changes (v2, 13 October 2026)
+# Design Changes — IP Lens: AI Agent Platform for Patent & Prior-Art Analysis
 
 The original architecture is unchanged: two Gemini-backed agents, deterministic retrieval, citation validation and scoring in Python, coordinated by LangGraph. These changes make the scope fit a 5-day build and make every portfolio claim provable.
 
@@ -26,6 +26,11 @@ The original architecture is unchanged: two Gemini-backed agents, deterministic 
 | 20 | Retry transient Gemini errors at most twice and record per-node workflow durations in reports | Bounds provider retry time and makes the comparison stage duration visible without claiming a separate provider-call timing log | Spec §4, §6; doc 12 |
 | 21 | Pin the reproducible local Python runtime to 3.12 in `.python-version` | Gives the setup and test procedure one consistent interpreter while package metadata remains compatible with 3.11–3.13 | Spec §8; docs 02, 16, 19 |
 | 22 | Refresh the front page and selected supporting documentation; add `.gitattributes` with LF text handling and binary PDF treatment | Aligns project setup, workflow explanations, phase status, and cross-platform line-ending behavior with the implementation | README; selected docs 02–19; `.gitattributes` |
+| 23 | Redesign the Streamlit page with a four-step overview, System sidebar, numbered workflow sections, consistent claim-status colors, result metrics, and a restrained theme | Makes the analysis flow and evidence easier for an internal reviewer to scan while keeping all API access over HTTP | `frontend/streamlit_app.py`; `.streamlit/config.toml`; docs 03–05, 14, 17 |
+| 24 | Set the local API URL default and two-terminal instructions to port 8001 | Avoids conflicts with other local projects using port 8000 and keeps the UI/API configuration aligned | `backend/app/config.py`; `.env.example`; README; docs 07, 16 |
+| 25 | Add a Python 3.12 Docker deployment with loopback-only API on 8001, Streamlit on 7860, build-time Chroma embedding preload, and synthetic-only empty-corpus seeding | Provides a reproducible public showcase without placing real patent PDFs or local data in the image | `Dockerfile`; `.dockerignore`; `deploy/start.sh`; `scripts/seed_demo_corpus.py` |
+| 26 | Add opt-in public-demo warning, optional UI access-code gate, four-claim and 2 MB upload limits, and upload opt-in | Limits the public demo to fictional, small inputs; unset variables preserve local behavior | `backend/app/config.py`; `frontend/demo_controls.py`; `frontend/streamlit_app.py`; tests |
+| 27 | Add a test-before-deploy Hugging Face workflow and Space metadata header; document the deployment, screenshot, setup, and evaluation limits | Makes deployment repeatable and keeps the GitHub README unchanged by the CI-only front-matter step | `.github/workflows/deploy-hf.yml`; `deploy/hf_space_header.md`; README; docs |
 
 ## Not changed (deliberately)
 

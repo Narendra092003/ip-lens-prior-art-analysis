@@ -1,8 +1,8 @@
-# IP Lens — Multi-Agent Prior-Art Search & Novelty Triage
+# IP Lens: AI Agent Platform for Patent & Prior-Art Analysis
 
 > **Instructions for the Visual Studio AI coding assistant:** Treat this document as the source of truth for the project. Use `docs/00-README.md` for the supporting design documents. Design changes made after the first version are summarised in `DESIGN-CHANGES.md`. Follow the implementation sequence in Section 12 and the day plan in `docs/19-BUILD-ORDER.md`, and implement only one phase at a time. Inspect the existing workspace before changing files. Keep the interface understandable to a patent analyst, preserve source provenance throughout the workflow, and document decisions and limitations. Do not invent performance results or claim that the tool determines patentability. Do not overwrite existing work without first explaining the impact and receiving the user's approval.
 
-> **Dedicated workspace requirement:** Build in a dedicated clean project folder. On the current machine, the prepared learning workspace is `C:\Users\HP\Documents\Codex\2026-10-13\ip-lens-step-by-step`. If you use this structured package as a fresh workspace, extract it and use the extracted `IP-Lens-Project` folder as the project root. The completed `ip-lens` folder is a reference copy; do not edit or copy its application implementation into the clean workspace. Keep the `ai-agent-platform-for-automated-patent` folder for planning and packaged outputs.
+> **Workspace:** Use the repository root containing `pyproject.toml` and `uv.lock`. Keep local secrets, indexed data, and generated exports out of version control.
 
 ## 1. Product goal
 
@@ -14,7 +14,7 @@ The project must demonstrate Python, LangGraph, FastAPI, ChromaDB, Gemini API, a
 
 ### In scope
 
-- Run locally on one machine for one user.
+- Run locally for one user and provide a single-container public demo deployment.
 - Accept user-uploaded, text-searchable patent documents in PDF, TXT, and Markdown formats. DOCX is a stretch goal (see Section 2a).
 - Accept invention disclosure text and optional user-edited claims.
 - Extract a short invention summary and candidate claims when claims are not supplied.
@@ -36,7 +36,7 @@ The project must demonstrate Python, LangGraph, FastAPI, ChromaDB, Gemini API, a
 - Patent-office crawling, public patent APIs, or automatic web research.
 - OCR for scanned PDFs.
 - Legal advice, a patentability decision, or a claim that the score predicts grant or rejection.
-- User accounts, multi-tenant isolation, hosted deployment, or enterprise security controls.
+- User accounts, multi-tenant isolation, or enterprise security controls. The public demo is a single-container showcase, not a production hosted service.
 - Persistent storage of analysis reports.
 
 ## 2a. Stretch goals (only after the core MVP and evaluation are complete)
@@ -106,7 +106,7 @@ Expose these endpoints:
 
 Use Pydantic request and response models. Return clear client errors for unsupported formats, oversized uploads, empty or unextractable documents, and invalid requests. Return a clear service error when Gemini is required but not configured or unavailable. Set a reasonable upload limit, default 25 MB per file.
 
-`POST /api/analyses` accepts reviewed-claim strings or `{ "claim_id", "text" }` objects. It accepts `prompt_version` values `v1` and `v2`, defaulting to `v2`; it also accepts optional `top_k`. Duplicate IDs and requests over `MAX_CLAIMS` return HTTP 400. Missing Gemini configuration returns 503; rate limits return 429; provider failures return a safe service error. Reports are not persisted by default.
+`POST /api/analyses` accepts reviewed-claim strings or `{ "claim_id", "text" }` objects. It accepts `prompt_version` values `v1` and `v2`, defaulting to `v2`; it also accepts optional `top_k`. Duplicate IDs and requests over `MAX_CLAIMS` return HTTP 400. Missing Gemini configuration returns 503. Disclosure extraction maps Gemini rate limits to 429; analysis provider errors, including rate limits, return a safe 502 response. Reports are not persisted by default.
 
 The analysis response must include:
 
@@ -121,11 +121,15 @@ The analysis response must include:
 
 ## 7. Interface requirements
 
-Provide a simple Streamlit interface with these sections:
+Provide a professional Streamlit interface with a wide layout, an open-by-default four-step "How it works" panel, and a System sidebar for API/Gemini status, passage count, available active settings, and stack labels. Organize the main page into these numbered sections:
 
 - **Corpus:** Upload documents, show ingestion results, and display the indexed passage count.
 - **Disclosure:** Enter or paste disclosure text, extract candidate claims, edit claims, and start analysis.
 - **Results:** Show the risk band and score components, claim-by-claim findings, evidence excerpts, source/page citations, uncertainty, and export buttons for JSON and Markdown.
+
+Show the overall score and band, claims analysed, evidence count, claims with no supporting passage, and analysis time together. Use consistent labels and colors for all four finding statuses. In each claim result, place shared and missing elements side by side and show citations with filename, page, similarity, and excerpt. Keep the disclosure-to-Gemini warning visible. Display the footer: "Research aid for human review. Not legal advice or a patentability decision. Searches only the uploaded documents."
+
+When `DEMO_MODE=true`, display a public-demo warning that identifies the corpus as fictional and discloses that text is sent to Gemini. If `ACCESS_CODE` is configured, require it in the UI before disclosure extraction or analysis. The public container caps requests at four claims and 2 MB per upload; UI uploads remain disabled unless `DEMO_ALLOW_UPLOADS=true`. These variables are unset by default for local development. The access code is a UI gate, not general API authentication.
 
 Include progress and actionable error messages. Clearly indicate when no documents have been indexed or Gemini is unavailable. Display a short notice explaining that disclosure text and retrieved excerpts are sent to the configured Gemini API for generation. Do not show secrets in logs or the UI.
 Explain the four finding statuses and show `Not assessed` for per-claim coverage when unavailable; reserve `Not scored` for the overall risk band. Default indexing to English through `INDEX_LANGUAGES`.
@@ -143,7 +147,10 @@ Explain the four finding statuses and show `Not assessed` for per-claim coverage
 - Keep Chroma data under an ignored `data/` directory.
 - Use `uv` for local Python environment and dependency management; commit the lockfile and keep local environments out of the repository.
 - Provide one documented local setup path and separate commands for starting the API and UI.
+- Use port 8001 as the default local API URL so it does not conflict with other projects using port 8000.
 - Configure at least `GEMINI_API_KEY`, `GEMINI_MODEL`, `MAX_CLAIMS`, `API_BASE_URL`, `CHROMA_PATH`, `MAX_UPLOAD_MB`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `DEFAULT_TOP_K`, and `MIN_SIMILARITY` through environment-backed settings.
+- Build a Python 3.12 Docker image from `uv.lock`, preload ChromaDB's default embedding model, run as a non-root user, and expose Streamlit on port 7860. Seed an empty container corpus only with the synthetic documents in `examples/synthetic_prior_art_*.txt`.
+- Deploy the image to a Hugging Face Docker Space only after CI runs `uv run pytest`; use `HF_TOKEN` and `HF_USERNAME` repository secrets. Never copy `.env`, real patent files, local Chroma data, or local exports into the image.
 
 ## 9. Portfolio deliverables
 
@@ -160,6 +167,8 @@ The repository should be presentable to an interviewer and include:
 - `scripts/evaluate_retrieval.py` and `scripts/compare_prompts.py` produce retrieval and prompt-comparison measurements. Keep these separate from model comparison quality; do not claim claim-element accuracy beyond what the reviewer notes support.
 - A clean `.env.example` and clear startup instructions.
 - Focused automated checks for document extraction, page-aware chunking, indexing/replacement, retrieval filtering, citation validation, risk scoring, and API validation.
+- `uv run pytest` covers the demo access-code check, four-claim limit, upload opt-in, and 2 MB per-file demo limit.
+- `docker build -t ip-lens .` succeeds; the container waits for the API health endpoint before starting Streamlit and exits if either process stops.
 
 ## 10. Acceptance criteria
 

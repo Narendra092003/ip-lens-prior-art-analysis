@@ -18,6 +18,7 @@ from backend.app.schemas import (
     DocumentUploadResponse,
     HealthResponse,
     IndexedDocument,
+    PublicSettingsResponse,
     ReviewedClaim,
 )
 from backend.app.services.documents import DocumentExtractionError
@@ -76,6 +77,23 @@ def corpus(
 ) -> CorpusResponse:
     """Return the indexed passage count and local storage mode."""
     return CorpusResponse(passage_count=vector_store.count())
+
+
+@router.get("/api/settings", response_model=PublicSettingsResponse)
+def public_settings(
+    settings: Settings = Depends(get_settings_dependency),
+) -> PublicSettingsResponse:
+    """Return active analysis settings without exposing credentials."""
+    return PublicSettingsResponse(
+        min_similarity=settings.min_similarity,
+        default_top_k=settings.default_top_k,
+        default_prompt_version="v2",
+        max_claims=settings.max_claims,
+        index_languages=sorted(settings.index_languages),
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap,
+        gemini_model=settings.gemini_model,
+    )
 
 
 @router.post("/api/analyses", response_model=AnalysisResponse)

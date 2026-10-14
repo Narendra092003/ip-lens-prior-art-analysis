@@ -28,6 +28,8 @@ Only `evidence` findings contribute to risk scoring.
 
 Each report records comparison prompt version, Gemini model, `MIN_SIMILARITY`, `top_k`, and corpus passage count at analysis time. The report also records per-node durations in milliseconds. JSON and Markdown exports are generated from the same validated report object; reports are not written to disk by the API by default.
 
+The UI presents score/band, claim count, evidence count, no-support count, and summed analysis duration in one overview row. Within each claim card, shared and missing elements are side by side; citations list filename, page and retrieval similarity, with the excerpt available for review.
+
 Markdown includes settings, total duration in seconds, human-readable status names and explanations, score components, limitations, and citations. Citation excerpts are shortened to about 400 characters for Markdown only. Overlapping citations from the same document/page are combined for display with a note; JSON preserves every citation and its full excerpt.
 
 ## Deterministic triage score

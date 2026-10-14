@@ -37,3 +37,5 @@ When retrieval returns no passage above the configured threshold, skip the compa
 
 The two Gemini-backed specialists have different tasks and structured contracts; deterministic retrieval and reporting surround them in a LangGraph workflow. The project should explain this balance honestly in an interview. It is a bounded multi-step system, not an autonomous legal agent.
 
+The redesigned UI keeps these boundaries: Streamlit sends requests to FastAPI over HTTP, while extraction, retrieval, comparison, citation validation, and scoring remain behind the API. Optional public-demo access and input-size checks are presentation/deployment safeguards, not additional model agents.
+
