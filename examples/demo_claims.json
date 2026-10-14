@@ -1,0 +1,18 @@
+[
+  {
+    "claim_id": "fictional-demo-claim-01",
+    "text": "A tractor turn assistance system comprising a tractor controller, a continuously variable transmission controller, an implement controller, an operator terminal, vehicle-position sensors, and a forward optical row-end sensor."
+  },
+  {
+    "claim_id": "fictional-demo-claim-02",
+    "text": "The system of claim 1, wherein the transmission controller receives an engine-load estimate and adjusts a transmission ratio to keep travel response within a selected operating band during work and during a turn."
+  },
+  {
+    "claim_id": "fictional-demo-claim-03",
+    "text": "The system of claim 1, wherein the controller enables a stored headland turn sequence only when the vehicle position is within a configured approach region and the optical sensor confirms row termination for a configured number of observations."
+  },
+  {
+    "claim_id": "fictional-demo-claim-04",
+    "text": "The system of claim 1, wherein the controller requests operator confirmation or deferral if the optical sensor is obscured or if observations disagree."
+  }
+]

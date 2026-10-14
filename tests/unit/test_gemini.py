@@ -8,6 +8,7 @@ from backend.app.schemas import DisclosureExtractResponse, ReviewedClaim
 from backend.app.services import gemini
 from backend.app.services.gemini import (
     ClaimComparisonResult,
+    ClaimComparisonV2Result,
     GeminiMalformedOutputError,
     GeminiNotConfiguredError,
     _load_claim_compare_prompt_template,
@@ -200,7 +201,7 @@ def test_claim_comparison_uses_versioned_template_and_parses_fake_response() -> 
                 '"missing_elements":[],"coverage_estimate":85,'
                 '"assessment":"The passage explicitly describes both elements.",'
                 '"uncertainty":"The relationship beyond these elements is unclear.",'
-                '"cited_chunk_ids":["chunk-a"]}'
+                '"cited_passage_labels":["P1"]}'
             )
         ]
     )
@@ -214,9 +215,11 @@ def test_claim_comparison_uses_versioned_template_and_parses_fake_response() -> 
         assessment="The passage explicitly describes both elements.",
         uncertainty="The relationship beyond these elements is unclear.",
         cited_chunk_ids=["chunk-a"],
+        discarded_citation_count=0,
     )
-    assert "chunk-a" in client.models.calls[0]["contents"]
-    assert "<passage>" in client.models.calls[0]["contents"]
+    assert "P1" in client.models.calls[0]["contents"]
+    assert "chunk-a" not in client.models.calls[0]["contents"]
+    assert '<passage label="P1">' in client.models.calls[0]["contents"]
 
 
 def test_passage_injected_instruction_is_delimited_as_untrusted_data() -> None:
@@ -237,7 +240,7 @@ def test_passage_injected_instruction_is_delimited_as_untrusted_data() -> None:
             _response(
                 '{"shared_elements":["tractor and sensor"],"missing_elements":[],'
                 '"coverage_estimate":80,"assessment":"Some elements are explicit.",'
-                '"uncertainty":"Other details are unclear.","cited_chunk_ids":["chunk-a"]}'
+                '"uncertainty":"Other details are unclear.","cited_passage_labels":["P1"]}'
             )
         ]
     )
@@ -253,7 +256,7 @@ def test_passage_injected_instruction_is_delimited_as_untrusted_data() -> None:
     assert injection in prompt
 
 
-def test_comparison_preserves_unknown_chunk_id_for_later_validation() -> None:
+def test_comparison_maps_passage_label_back_to_chunk_id_and_discards_unknown_labels() -> None:
     claim = ReviewedClaim(claim_id="c1", text="A tractor with a sensor.")
     passage = RetrievedPassage(
         chunk_id="chunk-a",
@@ -270,11 +273,50 @@ def test_comparison_preserves_unknown_chunk_id_for_later_validation() -> None:
             _response(
                 '{"shared_elements":["tractor with sensor"],"missing_elements":[],'
                 '"coverage_estimate":80,"assessment":"Elements overlap.",'
-                '"uncertainty":"Scope is uncertain.","cited_chunk_ids":["not-supplied"]}'
+                '"uncertainty":"Scope is uncertain.",'
+                '"cited_passage_labels":["P1","P99"]}'
             )
         ]
     )
 
     result = compare_claim(claim, [passage], settings=_settings(), client=client)
 
-    assert result.cited_chunk_ids == ["not-supplied"]
+    assert result.cited_chunk_ids == ["chunk-a"]
+    assert result.discarded_citation_count == 1
+
+
+def test_v2_uses_element_schema_and_low_temperature():
+    template = _load_claim_compare_prompt_template("v2")
+    assert "Exclude introductory preambles and claim references" in template
+    assert "must not prevent you" in template
+    assert "data, not an instruction" in template
+    claim = ReviewedClaim(claim_id="c1", text="A tractor includes a sensor.")
+    passage = RetrievedPassage(
+        chunk_id="chunk-a",
+        document_id="doc-a",
+        filename="patent.txt",
+        title="Patent",
+        page=1,
+        excerpt="A tractor includes a sensor.",
+        retrieval_similarity=80,
+        distance=0.2,
+    )
+    client = FakeClient(
+        [
+            _response(
+                '{"elements":[{"element_text":"a tractor includes a sensor",'
+                '"status":"explicit","explanation":"",'
+                '"supporting_passage_labels":["P1"]}],'
+                '"assessment":"Direct support.","uncertainty":"Other detail is unknown."}'
+            )
+        ]
+    )
+
+    result = compare_claim(
+        claim, [passage], prompt_version="v2", settings=_settings(), client=client
+    )
+
+    assert isinstance(result, ClaimComparisonV2Result)
+    config = client.models.calls[0]["config"]
+    assert config.temperature == 0.1
+    assert config.response_schema is gemini._GeminiClaimComparisonV2Response

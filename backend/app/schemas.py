@@ -74,13 +74,59 @@ class EvidenceCitation(ContractModel):
 class ClaimFinding(ContractModel):
     claim_id: str
     claim_text: str
-    evidence_status: Literal["evidence", "no_evidence"]
+    evidence_status: Literal[
+        "evidence", "no_evidence", "no_supporting_passage", "unsupported"
+    ]
     coverage_estimate: int | None = Field(default=None, ge=0, le=100)
+    useful_passage_count: int = Field(default=0, ge=0)
+    best_retrieval_similarity: int | None = Field(default=None, ge=0, le=100)
+    discarded_citation_count: int = Field(default=0, ge=0)
     shared_elements: list[str] = Field(default_factory=list)
     missing_elements: list[str] = Field(default_factory=list)
     assessment: str
     uncertainty: str
     citations: list[EvidenceCitation] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_evidence_consistency(self) -> "ClaimFinding":
+        if self.evidence_status in {
+            "no_evidence",
+            "no_supporting_passage",
+            "unsupported",
+        }:
+            if self.coverage_estimate is not None:
+                raise ValueError(
+                    f"{self.evidence_status} findings must not have a coverage estimate"
+                )
+            if self.citations:
+                raise ValueError(f"{self.evidence_status} findings must not have citations")
+        if self.evidence_status == "no_evidence":
+            if self.useful_passage_count != 0 or self.best_retrieval_similarity is not None:
+                raise ValueError("no_evidence findings must not have useful passages")
+            if self.discarded_citation_count != 0:
+                raise ValueError("no_evidence findings must not have discarded citations")
+        elif self.evidence_status == "no_supporting_passage":
+            if self.useful_passage_count < 1 or self.best_retrieval_similarity is None:
+                raise ValueError(
+                    "no_supporting_passage findings must have useful retrieved passages"
+                )
+            if self.discarded_citation_count != 0:
+                raise ValueError(
+                    "no_supporting_passage findings must not have discarded citations"
+                )
+        elif self.evidence_status == "unsupported":
+            if self.useful_passage_count < 1 or self.best_retrieval_similarity is None:
+                raise ValueError("unsupported findings must have useful retrieved passages")
+            if self.discarded_citation_count < 1:
+                raise ValueError("unsupported findings require discarded citations")
+        else:
+            if self.coverage_estimate is None:
+                raise ValueError("evidence findings must have a coverage estimate")
+            if not self.citations:
+                raise ValueError("evidence findings must have at least one citation")
+            if self.useful_passage_count < 1 or self.best_retrieval_similarity is None:
+                raise ValueError("evidence findings must have useful retrieved passages")
+        return self
 
 
 class ScoreComponents(ContractModel):

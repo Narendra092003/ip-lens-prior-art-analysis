@@ -7,7 +7,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Any, Sequence, TypeVar
+from typing import Any, Literal, Sequence, TypeVar
 
 from google import genai
 from google.genai import types
@@ -22,6 +22,8 @@ _REQUEST_TIMEOUT_MS = 30_000
 _MAX_RETRIES = 2
 # A low temperature makes repeated extraction wording and claim ordering steadier.
 _DISCLOSURE_TEMPERATURE = 0.1
+# Lower temperature keeps element classification and citation selection steadier.
+_COMPARISON_TEMPERATURE = 0.1
 _DISCLOSURE_PROMPT_PATH = (
     Path(__file__).resolve().parents[1] / "prompts" / "disclosure_extract_v1.md"
 )
@@ -69,6 +71,43 @@ class ClaimComparisonResult(BaseModel):
     assessment: str
     uncertainty: str
     cited_chunk_ids: list[str]
+    discarded_citation_count: int = 0
+
+
+class _GeminiClaimComparisonResponse(BaseModel):
+    """Provider-facing comparison shape; citations use opaque prompt labels."""
+
+    shared_elements: list[str]
+    missing_elements: list[str]
+    coverage_estimate: int = Field(ge=0, le=100)
+    assessment: str
+    uncertainty: str
+    cited_passage_labels: list[str]
+
+
+class ClaimComparisonElement(BaseModel):
+    """One independently assessed technical element in prompt v2 output."""
+
+    element_text: str
+    status: Literal["explicit", "inferred", "partial", "missing"]
+    explanation: str
+    supporting_passage_labels: list[str]
+
+
+class ClaimComparisonV2Result(BaseModel):
+    """Element-level comparison returned by prompt v2 before app conversion."""
+
+    elements: list[ClaimComparisonElement] = Field(min_length=1)
+    assessment: str
+    uncertainty: str
+
+
+class _GeminiClaimComparisonV2Response(BaseModel):
+    """Provider schema for element-by-element comparison and labelled support."""
+
+    elements: list[ClaimComparisonElement] = Field(min_length=1)
+    assessment: str
+    uncertainty: str
 
 
 def _generate_structured(
@@ -239,7 +278,7 @@ def compare_claim(
     *,
     settings: Settings | None = None,
     client: Any | None = None,
-) -> ClaimComparisonResult:
+) -> ClaimComparisonResult | ClaimComparisonV2Result:
     """Compare one reviewed claim against only the passages retrieved for it."""
     template = _load_claim_compare_prompt_template(prompt_version)
     claim_payload = json.dumps(
@@ -250,11 +289,13 @@ def compare_claim(
         ensure_ascii=False,
     )
     passage_blocks = []
-    for passage in passages:
+    label_to_chunk_id: dict[str, str] = {}
+    for index, passage in enumerate(passages, start=1):
+        label = f"P{index}"
+        label_to_chunk_id[label] = str(getattr(passage, "chunk_id", ""))
         passage_blocks.append(
-            "<passage>\n"
-            "chunk_id: "
-            f"{json.dumps(str(getattr(passage, 'chunk_id', '')), ensure_ascii=False)}\n"
+            f"<passage label={json.dumps(label)}>\n"
+            f"passage_label: {label}\n"
             "text_json: "
             f"{json.dumps(str(getattr(passage, 'excerpt', '')), ensure_ascii=False)}\n"
             "</passage>"
@@ -269,11 +310,38 @@ def compare_claim(
         f"{passages_text}\n"
         "</retrieved_passages>"
     )
-    return _generate_structured(
+    if prompt_version == "v2":
+        provider_result = _generate_structured(
+            prompt,
+            _GeminiClaimComparisonV2Response,
+            settings=settings,
+            client=client,
+            temperature=_COMPARISON_TEMPERATURE,
+        )
+        return ClaimComparisonV2Result.model_validate(provider_result.model_dump())
+
+    provider_result = _generate_structured(
         prompt,
-        ClaimComparisonResult,
+        _GeminiClaimComparisonResponse,
         settings=settings,
         client=client,
+    )
+    cited_chunk_ids: list[str] = []
+    discarded_citation_count = 0
+    for label in provider_result.cited_passage_labels:
+        chunk_id = label_to_chunk_id.get(label)
+        if chunk_id is None:
+            discarded_citation_count += 1
+            continue
+        cited_chunk_ids.append(chunk_id)
+    return ClaimComparisonResult(
+        shared_elements=provider_result.shared_elements,
+        missing_elements=provider_result.missing_elements,
+        coverage_estimate=provider_result.coverage_estimate,
+        assessment=provider_result.assessment,
+        uncertainty=provider_result.uncertainty,
+        cited_chunk_ids=cited_chunk_ids,
+        discarded_citation_count=discarded_citation_count,
     )
 
 
