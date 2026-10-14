@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from backend.app.config import Settings
 from backend.app.schemas import ReviewedClaim
 from backend.app.services.claim_comparison import (
     compare_claim_result,
@@ -32,6 +33,10 @@ def _passage():
     )
 
 
+def _test_settings() -> Settings:
+    return Settings(_env_file=None, gemini_api_key="dummy-test-key")
+
+
 def test_no_evidence_finding_skips_gemini() -> None:
     claim = ReviewedClaim(claim_id="c1", text="A tractor with a sensor.")
     client = FakeClient('{"unused": true}')
@@ -55,7 +60,7 @@ def test_comparison_calls_gemini_and_returns_raw_result_for_validation() -> None
         '"uncertainty":"Other details are unclear.","cited_passage_labels":["P1"]}'
     )
 
-    result = compare_claim_result(claim, retrieval, client=client)
+    result = compare_claim_result(claim, retrieval, settings=_test_settings(), client=client)
 
     assert isinstance(result, ClaimComparisonResult)
     assert result.cited_chunk_ids == ["chunk-a"]
@@ -72,7 +77,7 @@ def test_invented_passage_label_is_discarded() -> None:
         '"uncertainty":"Other details are unclear.","cited_passage_labels":["P1","P99"]}'
     )
 
-    result = compare_claim_result(claim, retrieval, client=client)
+    result = compare_claim_result(claim, retrieval, settings=_test_settings(), client=client)
 
     assert result.cited_chunk_ids == ["chunk-a"]
     assert result.discarded_citation_count == 1
@@ -100,7 +105,9 @@ def test_v2_converts_independent_elements_calculates_coverage_and_excludes_claim
         '],"assessment":"Some elements are supported.","uncertainty":"Scope is unclear."}'
     )
 
-    result = compare_claim_result(claim, retrieval, prompt_version="v2", client=client)
+    result = compare_claim_result(
+        claim, retrieval, prompt_version="v2", settings=_test_settings(), client=client
+    )
 
     assert result.coverage_estimate == 56  # (1 + 0 + .75 + .5) / 4 * 100
     assert result.shared_elements == [
@@ -129,6 +136,8 @@ def test_v2_coverage_weights_each_status():
         '"supporting_passage_labels":[]}],"assessment":"Assessment.","uncertainty":"Uncertain."}'
     )
 
-    result = compare_claim_result(claim, retrieval, prompt_version="v2", client=client)
+    result = compare_claim_result(
+        claim, retrieval, prompt_version="v2", settings=_test_settings(), client=client
+    )
 
     assert result.coverage_estimate == 56
