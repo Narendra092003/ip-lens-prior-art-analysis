@@ -9,7 +9,6 @@ Multi-agent prior-art search, claim comparison and novelty-risk triage for techn
 [![Gemini](https://img.shields.io/badge/Models-Gemini-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 
-**Live demo:** `https://huggingface.co/spaces/<HF_USERNAME>/ip-lens` *(placeholder until the Space is published).* The public demo uses fictional documents only.
 
 ![Visual preview of the IP Lens results layout, based on the saved synthetic demo report](docs/screenshot_results.png)
 
@@ -120,7 +119,6 @@ The container defaults to `DEMO_MODE=true`. Set `GEMINI_API_KEY` and optionally 
 
 Create a Docker Space named `ip-lens` and set the Space secrets `GEMINI_API_KEY` and, if desired, `ACCESS_CODE`. Configure `GEMINI_MODEL` and `DEMO_MODE` as Space variables; leave `DEMO_ALLOW_UPLOADS` unset or false unless uploads are needed. The demo is limited to the synthetic corpus, free-tier speed and possible cold starts.
 
-The GitHub Actions workflow `.github/workflows/deploy-hf.yml` tests pushes to `main` and manual runs before deploying. Add repository secrets `HF_TOKEN` (write access to the Space) and `HF_USERNAME`. After the test job passes, the workflow prepends `deploy/hf_space_header.md` in its CI workspace and force-pushes the tested source to the Space. It does not modify the GitHub README or repository history.
 
 ## Limitations
 
