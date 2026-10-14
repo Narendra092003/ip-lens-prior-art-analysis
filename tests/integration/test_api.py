@@ -1,12 +1,14 @@
+import json
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app.api import get_settings_dependency, get_vector_store
+from backend.app.api import get_gemini_client, get_settings_dependency, get_vector_store
 from backend.app.config import Settings
 from backend.app.main import app
 from backend.app.services import gemini
+from backend.app.services.chunking import ChunkedDocument, DocumentChunk
 from backend.app.services.vector_store import VectorStore
 
 
@@ -169,3 +171,105 @@ def test_disclosure_extract_returns_clear_error_when_gemini_not_configured(api_c
 
     assert response.status_code == 503
     assert "GEMINI_API_KEY is not configured" in response.json()["detail"]
+
+
+def test_analysis_returns_validated_report_and_both_exports(api_client) -> None:
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            self.call = kwargs
+            return SimpleNamespace(
+                parsed=None,
+                text=(
+                    '{"shared_elements":["battery sensor"],"missing_elements":[], '
+                    '"coverage_estimate":80,"assessment":"The passage describes a sensor.", '
+                    '"uncertainty":"The control details are unclear.",'
+                    '"cited_passage_labels":["P1"]}'
+                ),
+            )
+
+    class FakeClient:
+        def __init__(self):
+            self.models = FakeModels()
+
+    client, vector_store = api_client
+    chunk = DocumentChunk(
+        document_id="analysis-doc",
+        chunk_id="analysis-chunk",
+        original_filename="battery.txt",
+        display_title="Battery",
+        page_number=1,
+        chunk_index=0,
+        language="en",
+        text="A battery sensor measures the battery state and reports it to a controller.",
+    )
+    vector_store.index_chunks(
+        ChunkedDocument(document_id=chunk.document_id, chunks=(chunk,))
+    )
+    app.dependency_overrides[get_gemini_client] = FakeClient
+
+    response = client.post(
+        "/api/analyses",
+        json={
+            "disclosure_text": "A battery system with a sensor.",
+            "reviewed_claims": ["A battery sensor measures the battery state."],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["report"]["claims"][0]["evidence_status"] == "evidence"
+    assert body["report"]["risk_score"] is not None
+    assert json.loads(body["exports"]["json_export"]) == body["report"]
+    markdown = body["exports"]["markdown_export"]
+    assert "**Status:** evidence" in markdown
+    assert "This is a human-review aid, not legal advice." in markdown
+    assert body["report"]["limitations"] in markdown
+
+
+def test_analysis_rejects_too_many_claims(api_client) -> None:
+    client, _ = api_client
+    current = Settings(_env_file=None, gemini_api_key="test-key", max_claims=1)
+    app.dependency_overrides[get_settings_dependency] = lambda: current
+
+    response = client.post(
+        "/api/analyses",
+        json={
+            "disclosure_text": "Disclosure.",
+            "reviewed_claims": ["Claim one.", "Claim two."],
+        },
+    )
+
+    assert response.status_code == 400
+    assert "At most 1 reviewed claims" in response.json()["detail"]
+
+
+def test_analysis_reports_gemini_not_configured(api_client) -> None:
+    client, _ = api_client
+    app.dependency_overrides[get_settings_dependency] = lambda: Settings(
+        _env_file=None,
+        gemini_api_key=None,
+    )
+
+    response = client.post(
+        "/api/analyses",
+        json={"disclosure_text": "Disclosure.", "reviewed_claims": ["A claim."]},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Gemini is not configured."
+
+
+def test_analysis_invalid_request_returns_400(api_client) -> None:
+    client, _ = api_client
+
+    response = client.post(
+        "/api/analyses",
+        json={
+            "disclosure_text": "Disclosure.",
+            "reviewed_claims": ["A claim."],
+            "prompt_version": "v3",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid analysis request."

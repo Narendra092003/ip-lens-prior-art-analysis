@@ -1,7 +1,7 @@
 """Pydantic contracts for the IP Lens API and analysis records."""
 
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -51,9 +51,10 @@ class DisclosureExtractResponse(ContractModel):
 
 class AnalysisRequest(ContractModel):
     disclosure_text: str = Field(min_length=1, max_length=100_000)
-    # TODO(Phase 15): enforce Settings.max_claims in the analysis route.
-    reviewed_claims: list[str] = Field(min_length=1)
+    invention_summary: str | None = Field(default=None, max_length=10_000)
+    reviewed_claims: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
     top_k: int | None = Field(default=None, ge=1, le=10)
+    prompt_version: Literal["v1", "v2"] = "v1"
 
 
 class ReviewedClaim(ContractModel):
@@ -158,6 +159,16 @@ class AnalysisReport(ContractModel):
             raise ValueError("every finding claim_id must match a reviewed claim")
 
         return self
+
+
+class AnalysisExports(ContractModel):
+    json_export: str
+    markdown_export: str
+
+
+class AnalysisResponse(ContractModel):
+    report: AnalysisReport
+    exports: AnalysisExports
 
 
 class ErrorResponse(ContractModel):
