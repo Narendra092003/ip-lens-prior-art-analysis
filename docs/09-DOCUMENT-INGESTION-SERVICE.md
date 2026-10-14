@@ -2,17 +2,19 @@
 
 ## Responsibility
 
-Turn a user-uploaded, searchable patent document into page-aware text chunks with stable source metadata. The service handles PDF, TXT, and Markdown. DOCX is a stretch goal. It does not OCR scanned pages or make legal judgments.
+Convert a supported upload into searchable, page-aware chunks with source metadata. Supported formats are searchable PDF, TXT, and Markdown; DOCX is not supported. The service does not OCR scanned pages or make legal judgments.
 
 ## Processing path
 
-1. Validate allowed extension and file size before parsing.
-2. Decode text formats safely and extract text page-by-page from PDF.
-3. Normalize whitespace while preserving page boundaries and meaningful punctuation.
-4. Detect empty or text-free input and return a useful error.
-5. Divide each page into overlapping chunks using configured size and overlap.
-6. Assign stable document/chunk IDs and attach metadata.
-7. Ask the vector-store service to replace any existing chunks for the same document ID, then index the new chunks.
+1. Check file extension and per-file size before parsing.
+2. Decode text or extract searchable PDF text page by page.
+3. Skip near-empty PDF pages with fewer than 50 non-whitespace characters. Also skip likely drawing sheets when a sheet marker or figure label occurs with fewer than 40 real words; these increase the drawing-page skip count.
+4. Normalize text, retain page boundaries, tag each page `en`, `de`, `fr`, or `unknown` using stopwords, and mark whether its language is selected for indexing.
+5. Split included pages into overlapping chunks using `CHUNK_SIZE` and `CHUNK_OVERLAP`; chunks never cross page boundaries.
+6. Assign a content-derived document ID and stable chunk IDs, then replace existing chunks for that document before indexing.
+7. Return passage count, drawing pages skipped, language-excluded page count, or a clear per-file failure.
+
+`INDEX_LANGUAGES` defaults to `en`. If all pages are excluded by this setting, ingestion reports “no pages in the selected index languages.” Excluded-language pages are not counted as drawing pages. PDFs with no usable text layer are reported as scanned/unsearchable; OCR is not implemented.
 
 ## Page and source rules
 
@@ -20,31 +22,21 @@ Turn a user-uploaded, searchable patent document into page-aware text chunks wit
 |---|---|
 | PDF | 1-based physical PDF page number |
 | TXT / Markdown | Page 1 unless form-feed characters explicitly separate pages |
-| DOCX (stretch goal) | Page 1 unless explicit page breaks indicate later pages; do not claim Word-rendered pagination accuracy |
 
-Retain the original uploaded filename and a safe display title. Every chunk stays within one source page so its page citation remains valid.
-
-## Chunk metadata
-
-Each indexed chunk carries at least `document_id`, `chunk_id`, `original_filename`, `display_title`, `page_number`, `chunk_index`, and `text`. Add a content hash for stable duplicate detection/replacement. Do not treat the filename as a trusted patent identifier.
+Retain the original filename and a safe display title. Every chunk stays within one source page so its page citation remains valid. Do not treat filenames as trusted patent identifiers.
 
 ## Chunking defaults
 
-Start with approximately 1,200 characters and 180 characters of overlap, configurable through settings. Do not split across two pages. Keep enough context for claim comparison, and avoid duplicated leading/trailing text growing without bound.
+Defaults are 1,200 characters and 180 characters of overlap, configured through settings. Whitespace is preferred as a chunk boundary where practical. Re-indexing identical file content replaces its prior chunk set rather than increasing the count.
 
-## Replacement and errors
+## Bulk ingestion
 
-Uploading a file with the same stable content/document identity replaces its previous chunks instead of duplicating them. Report per-file success or failure. Errors should distinguish unsupported type, size limit, unreadable content, empty text, and a scanned-only PDF. Avoid storing raw temporary upload files after processing.
-
-## Real patent PDFs
-
-Published patent PDFs from Google Patents or Espacenet are usually text-searchable, but some older ones are scanned images. Test each file before the demo; if extraction is empty, the app must report it as unsupported (no OCR) rather than indexing nothing silently. Patent PDFs often have two-column layouts, so check a few extracted pages by eye.
+`uv run python scripts/ingest_folder.py examples/real` processes supported files in a folder through the same extraction, chunking, and vector-store service used by the API. It prints per-file progress and a final summary; temporary uploads are not retained.
 
 ## Manual review checklist
 
-- Each chunk resolves to its source filename and page.
-- A long page yields overlapping chunks without crossing into the next page.
-- Re-uploading the same file does not increase the corpus count through duplicates.
-- TXT/Markdown and PDF extraction failures give readable messages.
-- A scanned PDF without an OCR layer is clearly reported as unsupported by this MVP.
-
+- Each indexed chunk resolves to its filename and physical/source page.
+- Drawing pages and excluded languages contribute to their separate counts.
+- Re-uploading identical content does not create duplicates.
+- TXT/Markdown and PDF failures provide readable reasons.
+- A scanned PDF is clearly reported as unsupported because OCR is unavailable.

@@ -2,65 +2,43 @@
 
 ## API conventions
 
-- Use Pydantic request and response models for every JSON endpoint.
-- Keep response shapes stable and avoid returning stack traces, local paths, or secrets.
-- Return actionable client errors for malformed input and file errors; return a service error when Gemini is unavailable.
-- Use one request per analysis. The MVP does not require accounts, streaming, background jobs, or pagination.
-- FastAPI should expose its OpenAPI page at `/docs` during local development.
+- Use Pydantic contracts for JSON requests and responses.
+- Return safe, actionable errors; do not expose stack traces, local paths, secrets, or raw provider payloads.
+- Process multipart uploads independently so one failed file does not hide successful files.
+- FastAPI exposes its OpenAPI page at `/docs` during local development.
 
 ## Endpoint summary
 
 | Method and path | Input | Successful response |
 |---|---|---|
-| `GET /health` | None | API status and a `gemini_configured` boolean; never the key |
-| `GET /api/corpus` | None | Indexed document/passage counts and storage mode |
-| `POST /api/documents` | Multipart `files[]` | Per-file success/failure, document IDs, passage counts |
-| `POST /api/disclosures/extract` | JSON disclosure text | Summary and candidate claims for user review |
-| `POST /api/analyses` | Disclosure, reviewed claims, optional `top_k` | Claim findings, validated evidence, score, limitations |
+| `GET /health` | None | Status and `gemini_configured` boolean; never the key |
+| `GET /api/corpus` | None | Indexed passage count and storage/embedding mode |
+| `POST /api/documents` | Multipart `files[]` | Per-file successes and failures, including passage and skipped-page counts |
+| `POST /api/disclosures/extract` | Disclosure text | Summary and candidate claims for user review |
+| `POST /api/analyses` | Disclosure, reviewed claims, optional `top_k` and `prompt_version` | Validated report and JSON/Markdown exports |
 
-## Request examples
+## Analysis request
 
-### Upload documents
-
-```http
-POST /api/documents
-Content-Type: multipart/form-data
-
-files: prior_art.pdf
-files: second_document.txt
-```
-
-### Structure a disclosure
-
-```json
-{
-  "disclosure_text": "A synthetic description of the invention for the demo."
-}
-```
-
-### Analyze user-reviewed claims
+`reviewed_claims` accepts plain strings, which receive sequential IDs such as `claim-1`, or objects `{ "claim_id": "…", "text": "…" }`, whose IDs are retained. Duplicate IDs are rejected. `prompt_version` is `v1` or `v2` and defaults to `v2`; `top_k` is optional and defaults to the configured value (4, maximum 10).
 
 ```json
 {
   "disclosure_text": "The original disclosure text.",
   "reviewed_claims": [
-    "A system comprising ...",
-    "The system of claim 1, wherein ..."
+    {"claim_id": "claim-a", "text": "A system comprising …"},
+    "A dependent claim …"
   ],
+  "prompt_version": "v2",
   "top_k": 4
 }
 ```
 
-The exact response fields are defined in [`13-DATA-MODEL-AND-REPORTS.md`](./13-DATA-MODEL-AND-REPORTS.md) and the Pydantic schemas.
+The response contains the validated `AnalysisReport` and both exports generated from that same report object. Reports are not persisted to disk by default. Full contracts are in [`13-DATA-MODEL-AND-REPORTS.md`](./13-DATA-MODEL-AND-REPORTS.md) and `backend/app/schemas.py`.
 
 ## Validation and errors
 
-- Unsupported extension or media type: clear client error identifying the rejected file.
-- File above the configured default of 25 MB: reject it before reading the whole file into memory.
-- Empty, unreadable, or text-free scanned PDF: return a per-file extraction failure with a helpful reason.
-- Invalid disclosure, empty claims, or `top_k` outside 1–10: validation error.
-- Gemini key missing when a model call is required: service error that names the missing configuration key, never its value.
-- Provider timeout or invalid structured output: service error with a safe message; do not return invented fallback content.
-
-For multi-file uploads, process each file independently so one failure does not conceal successful indexing of other files. Do not leak absolute paths or raw exception details in public responses.
-
+- Uploads accept PDF, TXT, and Markdown. Each file has a configured size limit (25 MB by default); individual extraction/indexing failures are returned in the upload response.
+- Analysis request validation, duplicate claim IDs, and exceeding `MAX_CLAIMS` return HTTP 400.
+- Gemini not configured returns 503; rate limiting returns 429; provider/unavailable failures return a safe 502/503 response.
+- Empty, unreadable, scanned-only, unsupported, and all-excluded-language documents return a per-file error reason.
+- Never return credentials, prompt text, disclosure contents, raw provider details, or temporary file paths.

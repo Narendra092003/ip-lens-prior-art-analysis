@@ -1,45 +1,33 @@
 # 12 — LangGraph Analysis Workflow
 
-## Graph state
+## Graph state and routing
 
-Use a typed state model with the analysis ID, disclosure text, exact reviewed claims, current claim index, retrieval results keyed by claim ID, validated findings, score/report fields, and a safe error/status field. Avoid putting uploaded full documents in graph state; pass only the necessary excerpts and identifiers.
-
-## Nodes and routing
+The typed state carries an analysis ID, disclosure text, reviewed claims and IDs, current claim index, per-claim retrieval results and findings, score/report fields, per-node durations, and status/error. It does not contain full source documents.
 
 ```mermaid
 flowchart LR
-    A[Validate analysis input] --> B[Retrieve for current claim]
-    B --> C{Useful passage?}
-    C -->|Yes| D[Compare claim with supplied evidence]
-    C -->|No| E[Create no-evidence finding in Python]
-    D --> F[Validate cited chunk IDs]
+    A[Validate request] --> B[Retrieve current claim]
+    B --> C{Useful passages after threshold?}
+    C -->|Yes| D[Compare with selected prompt version]
+    C -->|No| E[Build no-evidence finding in Python]
+    D --> F[Validate citations for this claim]
     E --> G[Advance to next claim]
     F --> G
     G -->|More claims| B
-    G -->|All claims complete| H[Compute score and assemble report]
+    G -->|Complete| H[Score and assemble report]
 ```
 
-The exact node names may vary, but each responsibility must remain explicit. Retrieval and no-evidence handling should be application code. Gemini is called only by the comparison node when useful passages exist.
+The workflow defaults to comparison prompt v2. A request may choose v1. Retrieval is per claim and applies the configured `top_k` and `MIN_SIMILARITY` before routing.
 
-## Per-claim flow
+## Finding statuses
 
-1. Select the next user-reviewed claim without rewriting it.
-2. Retrieve candidates from ChromaDB using the configured `top_k` and threshold.
-3. If the list is empty, build a no-evidence finding with no citations.
-4. Otherwise call the comparison service with that claim and only its retrieved excerpts.
-5. Validate each proposed chunk ID against the current claim's result set and enrich valid citations from trusted stored metadata.
-6. Append the finding and move to the next claim.
-7. When all claims finish, call deterministic report/scoring code.
+- `no_evidence`: no passage reached the threshold; Python creates this finding without a Gemini call.
+- `no_supporting_passage`: passages reached the threshold and were compared, but Gemini cited none. Model shared/missing elements and assessment are retained; coverage and citations are empty.
+- `unsupported`: Gemini returned citation labels, but all failed to map to retrieved passages. Coverage and citations are empty.
+- `evidence`: at least one citation maps to a retrieved passage for that claim and survives validation.
 
-## Failure behavior
+Only `evidence` findings contribute to the score. The workflow records the number of useful passages and best retrieval similarity on each finding.
 
-Invalid request state should stop before model calls. Gemini errors should produce a clear API service error rather than a fabricated partial finding. Invalid citations are discarded; they must never be rendered as valid evidence. An empty corpus or no passages above threshold remains a completed analysis with no evidence and `Not scored` when there are no valid citations.
+## Failures and timing
 
-## Timing
-
-Wrap each node so it records its start and end time in the state. Return per-node and total durations in the analysis response and write them to the server log. These measurements feed the timing section of `docs/EVALUATION.md`; do not describe the system as low-latency without them.
-
-## Keeping the graph bounded
-
-The MVP analyzes only the claims submitted in one request, with a maximum claim count and input-size limit set in configuration. It does not let the model choose tools, call arbitrary URLs, write to the file system, or expand the search beyond ChromaDB.
-
+Invalid input stops before model calls. Gemini errors stop the analysis with a safe service error instead of a fabricated finding. Each executed graph node records its duration in milliseconds; the report/UI provide the per-node durations and summed analysis duration. A no-evidence result does not by itself make the overall report `Not scored`; that band is used only when no evidence finding contributes to the score.

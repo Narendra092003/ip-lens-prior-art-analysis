@@ -1,36 +1,26 @@
 # 10 — Retrieval and ChromaDB
 
-## Purpose
+## Purpose and storage
 
-Find passages in the user's local uploaded corpus that may relate to each reviewed claim. Retrieval narrows what the analyst should inspect; it does not determine whether a document is legally prior art or whether a claim is novel.
+Retrieval finds passages in the local uploaded corpus that may relate to each reviewed claim. It narrows what a reviewer should inspect; it does not determine legal prior-art status, novelty, or patentability.
 
-## Storage design
-
-- Use ChromaDB's persistent local client and one clearly named collection for patent-document chunks.
-- Keep the database under the project `data/` directory and ignore that directory in Git.
-- Store chunk text and the metadata defined in [`09-DOCUMENT-INGESTION-SERVICE.md`](./09-DOCUMENT-INGESTION-SERVICE.md).
-- Use ChromaDB's local embedding function. Do not send corpus text to a separate embedding API.
-- Preserve a raw cosine distance internally for debugging and evaluation.
+- ChromaDB uses a persistent local client, one cosine-distance collection, and its local default embedding function.
+- Data is under the project-root `data/` directory and excluded from Git.
+- The vector-store service is the only module that imports ChromaDB.
+- Raw cosine distance is retained in internal search results.
 
 ## Search behavior
 
-Run a separate semantic query for every reviewed claim. Default `top_k` is 4; accept values from 1 to 10. Convert Chroma's cosine distance `d` to the displayed retrieval-similarity value using:
+Search each reviewed claim separately. `top_k` defaults to 4 and accepts 1–10. Convert cosine distance `d` using:
 
 ```text
 similarity = clamp(round((1 - d) * 100), 0, 100)
 ```
 
-Only pass a passage to claim comparison when its converted value meets `MIN_SIMILARITY` (default 35 on a 0–100 scale). This is an adjustable retrieval filter, not a calibrated probability. It should be measured on a labeled synthetic corpus before making retrieval-quality claims.
+Only passages at or above `MIN_SIMILARITY` are useful; its default is **50**. This configurable value is a retrieval filter, not a calibrated probability. It was selected as the lowest tested threshold where both evaluation no-answer claims returned no passages; see [`EVALUATION.md`](./EVALUATION.md).
 
-## Result contract
+`ClaimRetrieval` keeps useful passages and the number dropped below threshold. Results carry chunk/document IDs, filename, title, page, excerpt, similarity, and raw distance. Re-indexing a document replaces its old chunks.
 
-Each search result includes the chunk ID, source document ID, filename, display title, page number, excerpt, raw distance, and converted retrieval similarity. The UI labels the percentage **retrieval similarity** and shows it beside the excerpt. It never labels it a likelihood of infringement, novelty, or relevance.
+## Evaluation
 
-## Lifecycle operations
-
-The service provides indexing, deletion/replacement by document identity, corpus counts, and search. Re-indexing a file removes its old chunk IDs before storing the new set. The vector-store layer is the only code that directly talks to ChromaDB; routes and Streamlit use service methods.
-
-## Evaluation measures
-
-Use a hand-labeled synthetic dataset with a query claim and expected relevant chunk IDs. Calculate Recall@k and inspect missed relevant passages. Tune `MIN_SIMILARITY` and chunk defaults using that dataset, record the settings, and keep the set small enough to review manually. Do not present retrieval similarity as a calibrated score.
-
+The current labeled retrieval evaluation uses `top_k=10` without threshold filtering to calculate Recall@1 and Recall@4. It also reports a 30–60 threshold sweep. Recall, threshold counts, dataset, chunk size, and overlap are in [`EVALUATION.md`](./EVALUATION.md). Similarity is not a calibrated measure of relevance.

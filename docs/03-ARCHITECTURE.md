@@ -11,9 +11,15 @@ flowchart LR
     API --> GRAPH[LangGraph analysis workflow]
     GRAPH --> RET[Per-claim retrieval]
     RET --> VDB
-    GRAPH --> GEM[Gemini client]
-    GRAPH --> REP[Python citation validation and scoring]
-    REP --> API
+    RET --> ROUTE{Useful passages?}
+    ROUTE -->|Yes| GEM[Gemini comparison]
+    ROUTE -->|No| PY[Python no-evidence finding]
+    GEM --> REP[Python label mapping and citation validation]
+    PY --> SCORE[Python scoring]
+    REP --> SCORE
+    SCORE --> REPORT[Validated report]
+    API --> EXTRACT[Gemini disclosure structuring]
+    REPORT --> API
     API --> UI
 ```
 
@@ -27,7 +33,7 @@ flowchart LR
 | Vector-store service | Persistent local index and retrieval primitives | Generative comparison or legal conclusions |
 | Gemini client | Provider configuration, structured calls, timeout/error mapping | Final scores or source metadata |
 | LangGraph | State transitions and specialist-step orchestration | HTTP response serialization or UI rendering |
-| Report service | Citation validation, deterministic scoring, export model | Invented citations or model-calculated scores |
+| Workflow and report services | Citation validation in the workflow; deterministic scoring and exports in the report service | Invented citations or model-calculated scores |
 
 ## Data path
 
@@ -36,8 +42,8 @@ flowchart LR
 3. Page-aware chunking creates stable document and chunk IDs.
 4. ChromaDB stores text with metadata and local embeddings.
 5. The user submits a disclosure, reviews candidate claims, and starts an analysis.
-6. LangGraph retrieves evidence per claim, calls Gemini only for claims with useful passages, and passes results to deterministic validation and scoring.
-7. FastAPI returns one structured report. Streamlit renders that report and offers JSON/Markdown downloads.
+6. LangGraph retrieves evidence per claim, calls Gemini only for claims with useful passages, maps passage labels to retrieved chunks, validates citations, and computes the score in Python.
+7. FastAPI returns one structured report, including analysis settings and exports. Streamlit renders the report and offers JSON/Markdown downloads.
 
 ## Trust boundaries
 

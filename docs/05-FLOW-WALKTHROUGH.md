@@ -19,8 +19,8 @@ The researcher uploads `synthetic-cooling-prior-art.pdf` and enters a disclosure
 1. Streamlit sends the disclosure and user-reviewed claims to `POST /api/analyses`.
 2. LangGraph starts with typed state containing the analysis ID, reviewed claims, configuration, and an initially empty result list.
 3. For Claim 1, retrieval searches ChromaDB and removes passages below `MIN_SIMILARITY`.
-4. If evidence remains, the comparison step receives Claim 1 and only those passages. It returns shared elements, missing elements, uncertainty, a coverage estimate, and proposed chunk IDs.
-5. Python checks that each proposed chunk ID belongs to Claim 1's retrieved set. It attaches the trusted filename, page, title, and excerpt from the store.
+4. If evidence remains, the comparison step receives Claim 1 and only those passages, labeled P1, P2, and so on. The default v2 response gives element-level judgments and supporting labels.
+5. Python maps labels to retrieved chunk IDs, discards invalid labels, validates citations for Claim 1, and attaches trusted filename, page, title, and excerpt metadata. Python calculates v2 coverage.
 6. The graph repeats the retrieval/comparison path for Claim 2. If no useful evidence exists, application code returns a no-evidence result without calling Gemini.
 7. Python computes the score using only claims with valid evidence. If none have valid citations, the result is `Not scored` with a null numeric score.
 8. FastAPI returns the report; Streamlit renders the same report and makes JSON/Markdown downloads available.
@@ -45,6 +45,7 @@ The percentage is a model-produced comparison estimate, not a measured legal con
 
 - Unsupported or unreadable upload: report that file's failure without discarding successful files in the same request.
 - Gemini unavailable: return an actionable service error; do not silently invent model output.
-- No passage above threshold: show no-evidence and `Not scored` when no claim has a valid citation.
-- Model cites an unknown chunk: discard the citation and report the remaining validated evidence only.
+- No passage above threshold: show `no_evidence`; the overall score is `Not scored` only when no claim has a validated evidence finding.
+- Useful passages receive no citation: retain the comparison but show `no_supporting_passage` with no coverage or citations.
+- All returned labels are invalid: show `unsupported`; do not render the citations or score the finding.
 

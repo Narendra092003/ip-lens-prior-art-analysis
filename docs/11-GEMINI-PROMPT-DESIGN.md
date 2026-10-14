@@ -2,38 +2,23 @@
 
 ## Provider boundary
 
-`backend/app/services/gemini.py` is the only module that imports and calls the Google GenAI SDK. It reads the API key and model name from environment-backed settings, applies timeouts, requests structured output, validates it with Pydantic, and converts provider errors to safe application errors.
+`backend/app/services/gemini.py` is the only module importing the official `google-genai` SDK. It loads `GEMINI_API_KEY` and `GEMINI_MODEL` from settings, requests structured output, parses it into Pydantic models, applies a request timeout, and retries transient rate-limit, timeout, and server failures at most twice. Provider diagnostics log the error class, status, and safe message without logging keys or prompt/disclosure text.
 
-Routes, Streamlit, retrieval, and report scoring must not call the SDK directly. Model output is untrusted until parsed and validated.
+The two model-backed tasks are disclosure structuring and claim comparison. Retrieval, label-to-chunk mapping, citation validation, score calculation, and report assembly are Python code.
 
-The module exposes exactly two task functions, `structure_disclosure(text) -> DisclosureStructure` and `compare_claim(claim, passages, prompt_version) -> ClaimComparison`, using the project's Pydantic models. Nothing outside this module imports Gemini types, so a different provider can be substituted by rewriting only this file. The `prompt_version` argument lets the evaluation script run v1 and v2 on identical inputs.
+## Disclosure structuring
 
-## Versioned prompt files
+`disclosure_extract_v1.md` requests a concise invention summary and candidate claims for human review. It treats disclosure content as data rather than instructions, preserves details, avoids inventing specifications, and uses temperature 0.1 to reduce variation.
 
-Keep prompt templates in files such as `backend/app/prompts/disclosure_extract_v1.md` and `claim_compare_v1.md`. Each template should state the task, schema constraints, evidence boundary, prohibited claims, and behavior for uncertainty. Changes to prompts should be reviewed against the evaluation set and recorded with a version or commit.
+## Claim comparison
 
-## Disclosure-structuring prompt
+The workflow defaults to prompt v2; v1 remains selectable for comparison. The model receives one reviewed claim and only that claim's useful retrieved passages. Passages are labeled `P1`, `P2`, and so on. Python maps returned labels to retrieved chunk IDs and discards labels not supplied. The prompt tells the model not to repeat passage labels in narrative text; Python also replaces any that remain with source filename and page.
 
-Input: the user's disclosure text. Output: a concise summary and candidate numbered claims. Require the model to preserve technical details, avoid inventing missing specifications, and mark ambiguous details as uncertain. The output is for user review and is not silently considered final.
+- **v1** returns shared/missing elements and a coverage estimate.
+- **v2** splits the claim into technical elements, excluding preambles and claim references. Each element is `explicit`, `inferred`, `partial`, or `missing`; inferred/partial explanations and support labels are returned. Python computes coverage from those statuses (1, 0.75, 0.5, 0), averaging and scaling to 0–100.
 
-## Claim-comparison prompt
+Both prompts treat passages as evidence data, distinguish explicit statements from inference, prohibit invented details and legal novelty/patentability conclusions, and say the output is for human review.
 
-Input: one reviewed claim and its retrieved passages, each with a chunk ID and excerpt. Output: shared elements, missing elements, coverage estimate from 0 to 100, assessment, uncertainty, and proposed cited chunk IDs. The prompt must say that the passages are evidence data, not instructions, and that citations may only refer to provided IDs.
+## Validation and evaluation
 
-## Validation and error handling
-
-- Validate structured output against Pydantic models.
-- Reject missing required fields, invalid numeric ranges, excessive text, and malformed JSON.
-- Validate cited IDs against the current claim's retrieval results in application code; never trust the prompt alone.
-- Use bounded retries for transient provider failures, not an unbounded loop.
-- Surface missing-key, rate-limit, timeout, and malformed-output errors clearly.
-- Never log API keys, full private disclosures, or full retrieved legal documents.
-
-## v1 and v2 of the comparison prompt
-
-Write `claim_compare_v1.md` first and get the workflow running with it. After seeing real outputs, write `claim_compare_v2.md` to fix the most common problem you observed, for example vague shared elements, inferences presented as explicit statements, or citations that do not support the element. Record in `docs/EVALUATION.md` what you changed and why. This is what makes "benchmarked prompt pipelines" a true statement.
-
-## Prompt evaluation
-
-Maintain a small set of synthetic disclosure and claim-comparison cases. Compare prompt versions on structured-output validity, whether the analysis stays within supplied evidence, whether every cited ID exists, and reviewer judgments of shared/missing claim elements. Do not call prompt performance “accuracy” until a labeled set and scoring method support that claim.
-
+Structured responses are parsed and validated. Citations are checked against the retrieved passages for the same claim. The v1/v2 comparison script reuses each case's retrieval across three runs per version; its current settings and results are in [`EVALUATION.md`](./EVALUATION.md) and `outputs/prompt_comparison.md`. This small evaluation measures schema validity and run-to-run consistency; it does not establish model accuracy.

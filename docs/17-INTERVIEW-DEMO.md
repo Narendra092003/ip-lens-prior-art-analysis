@@ -2,57 +2,35 @@
 
 ## One-minute project description
 
-> IP Lens is a local, evidence-linked prior-art analysis prototype. A user uploads patent documents, reviews claims extracted from a technology disclosure, and gets claim-by-claim comparisons against passages retrieved from that uploaded corpus. LangGraph coordinates the workflow; FastAPI exposes it; ChromaDB stores local embeddings; Gemini structures and compares text; Streamlit presents the evidence. The score is a transparent triage heuristic, not a legal patentability decision.
+> IP Lens is a local, evidence-linked prior-art research prototype. It retrieves from documents uploaded to its corpus, compares reviewed claims with selected passages, validates citations in Python, and presents a report for human review. LangGraph coordinates the workflow; FastAPI exposes it; ChromaDB stores local embeddings; Gemini structures disclosures and compares claims; Streamlit presents the evidence. Its score is an unvalidated triage heuristic, not legal advice or a patentability decision.
 
 ## Demo flow
 
-1. Show the application title and the data-handling notice.
-2. Upload two synthetic prior-art examples and two real published patents from `examples/REAL_PATENTS.md`; point out per-file ingestion status and corpus count.
-3. Enter the synthetic disclosure and show proposed claims.
-4. Edit or confirm the claims to demonstrate analyst control.
-5. Start analysis and follow one claim from retrieved passage to comparison and validated citation.
-6. Open the original excerpt and note the filename/page.
-7. Show a claim with no useful evidence or explain the `Not scored` behavior if the full corpus has no valid citations.
-8. Explain the 65/35 triage formula and download JSON/Markdown.
-9. Show `docs/EVALUATION.md`: the real Recall@k, the prompt v1-vs-v2 table, and the measured timings.
+1. Start the API and Streamlit using [`16-LOCAL-RUNNING.md`](./16-LOCAL-RUNNING.md); show the research-aid notice and corpus count.
+2. Upload `examples/synthetic_prior_art_01.txt` through `_05.txt` and point out page, drawing, and language ingestion counts.
+3. Paste `examples/demo_disclosure.md` into Disclosure and extract candidate claims.
+4. Review/edit the claims. `examples/demo_claims.json` contains the prepared texts and IDs for a reproducible API request.
+5. Leave v2 selected, run analysis, and trace a finding to its filename, page, and excerpt. Explain the four statuses: Evidence, No evidence, No supporting passage, and Unsupported.
+6. Show the analysis settings, Python-calculated score components, limitations, duration, and JSON/Markdown download buttons.
+7. Open [`EVALUATION.md`](./EVALUATION.md) and `../outputs/prompt_comparison.md` for the measured retrieval and prompt-comparison results, including their limitations.
 
 ## What to emphasize
 
-- Source provenance is retained from extraction through the report.
-- The user, not the model, approves claims before analysis.
-- No-evidence results are explicit; the system does not treat missing evidence as low risk.
-- The score is deterministic once claim coverage and cited retrieval similarity exist.
-- The search scope is limited to documents in the local uploaded corpus.
-- Prompt outputs are validated and citations are checked in application code.
-- The model SDK is isolated in one module, so confidential use could switch to an approved in-company model.
+- The user reviews claims before analysis; supplied claim IDs are retained by the API.
+- Only `evidence` findings contribute to the score. Missing evidence is never presented as a Low band.
+- The score uses `round(0.65 * max_claim_coverage + 0.35 * best_cited_retrieval_similarity)` and is not a probability or legal conclusion.
+- Retrieval covers only the uploaded corpus, and prompt coverage judgments vary between runs.
+- Prompt v2 is the workflow/API default; v1 remains selectable. The current held-out comparison claims were easy single-feature matches and do not demonstrate generalization.
+- The public Gemini API receives the disclosure and retrieved excerpts. The demo is unsuitable for confidential material; an approved private provider would be needed.
 
 ## Questions to prepare for
 
-**Why multiple agents?** The disclosure-structuring and claim-comparison roles solve different language tasks and return different typed outputs. Retrieval and scoring remain ordinary code.
+**Why multiple agents?** Disclosure structuring and claim comparison are separate model tasks with different structured outputs. Retrieval, label mapping, citation validation, and scoring remain Python code.
 
-**How do you know it works?** Show the retrieval evaluation method and actual collected results. Explain that model comparison quality needs a separate human-reviewed evaluation.
+**How do you know it works?** Show the retrieval and v1/v2 measurements, explain that the labeled sets are small, and distinguish consistency from correctness.
 
-**Does it determine novelty?** No. It is an early research aid over a limited corpus, not a legal analysis or patentability decision.
+**Does it determine novelty?** No. It is a research aid over the selected uploaded corpus, not an exhaustive search or legal analysis.
 
-**Did you write it yourself?** Answer honestly: you wrote the specification and design decisions, built it phase by phase with an AI coding assistant, reviewed and tested every phase, and can explain each file. The Git history shows one commit per phase.
+**Could this process confidential disclosures?** Not with the public Gemini API configuration. The SDK integration is isolated in `backend/app/services/gemini.py` so an approved provider can replace it.
 
-**Could this be used with real invention disclosures?** Not as built: the MVP sends text to the public Gemini API. For confidential disclosures, the model call would move to approved infrastructure inside the company, which only requires replacing the provider module.
-
-**How fast is it?** Quote only the measured median and maximum from `docs/EVALUATION.md`, and name the slowest step.
-
-**What would you build next?** Improve the labeled corpus, measure retrieval recall and comparison support, and only then consider a public patent source or OCR as a separately scoped feature.
-
-## Claims you can make once the evidence exists
-
-| Statement | Only when |
-|---|---|
-| "Built a multi-agent workflow" | The end-to-end demo runs |
-| "Benchmarked prompt pipelines" | The v1-vs-v2 table is in `docs/EVALUATION.md` |
-| "Recall@4 of X on a labeled synthetic set" | The script printed X |
-| "Tested on real patent documents" | The real-patent demo set was ingested and analysed |
-| "Analysis takes about N seconds" | N is the measured median |
-
-## Claims not to make
-
-Do not claim production readiness, search against patent-office repositories, exhaustive prior-art coverage, legal accuracy, a measured benchmark that has not been collected, or that vector similarity itself proves claim overlap.
-
+**What would you build next?** Evaluate on harder held-out claims and a closely related corpus before changing retrieval or claiming improved comparison quality.

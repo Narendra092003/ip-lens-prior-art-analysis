@@ -2,6 +2,34 @@
 
 Section 12 of [`../PROJECT_SPECIFICATION.md`](../PROJECT_SPECIFICATION.md) is authoritative if this summary ever differs.
 
+## Implementation status
+
+The following phases have been delivered in the current workspace.
+
+| Phase | Delivered |
+|---:|---|
+| 1 | Project scaffold, uv metadata/lockfile, environment example, and starter README |
+| 2 | Environment-backed settings and strict Pydantic contracts |
+| 3 | TXT/Markdown and searchable-PDF extraction, page numbering, language tagging, drawing-page skips, and clear extraction errors |
+| 4 | Stable page-bounded overlapping chunks with content-derived IDs |
+| 5 | Persistent cosine ChromaDB store with indexing, replacement, count, and search |
+| 6 | FastAPI app, health endpoint, and corpus count endpoint |
+| 7 | Shared extraction/chunk/index service, multi-file upload API, and folder-ingestion script |
+| 8 | Streamlit corpus uploader and API status/count display |
+| 9 | Isolated Gemini structured-output client with timeouts, bounded retries, safe errors, and warning logs |
+| 10 | Disclosure extraction prompt, route, and editable reviewed-claims UI |
+| 11 | Per-claim retrieval with similarity thresholding and dropped-passage counts |
+| 12 | Versioned claim comparison prompts v1 and v2; v2 uses per-element judgments and Python coverage |
+| 13 | Typed LangGraph workflow with useful-passage/no-evidence routing and per-node durations |
+| 14 | Citation-label mapping and validation, four finding statuses, and deterministic risk score |
+| 15 | Analysis endpoint, request validation, validated report, JSON and Markdown exports |
+| 16 | Streamlit results view, settings/status explanations, evidence display, durations, and downloads |
+| 17 | Labeled retrieval and repeated v1/v2 prompt evaluations, sample reports, tests, and project documentation; five-run aggregate analysis timing remains uncollected |
+
+The analysis workflow and API default to prompt v2. Prompt v1 remains selectable.
+
+## Original schedule (planning record)
+
 ## Timeline
 
 | Day | Date | Phases | Goal for the day |
@@ -19,7 +47,7 @@ Plan for about 6–8 focused hours per day. If a day runs over, use the buffer d
 
 ## Day 0 — Setup (tonight, about 1 hour)
 
-- Follow [`07-GETTING-STARTED.md`](./07-GETTING-STARTED.md): install Python 3.11+, `uv`, Git and VS Code.
+- Follow [`07-GETTING-STARTED.md`](./07-GETTING-STARTED.md): install the pinned Python 3.12 runtime with `uv`, Git and VS Code.
 - Create a Gemini API key, put it in `.env`, and confirm one test call works.
 - Create a GitHub repository for the project.
 - Download 5–8 published, text-searchable patent PDFs on agricultural machinery (for example tractor transmissions, implement control, precision farming) from Google Patents or Espacenet. Note each publication number and URL for `examples/REAL_PATENTS.md`.
@@ -53,7 +81,7 @@ Plan for about 6–8 focused hours per day. If a day runs over, use the buffer d
 | 9 | Gemini client with `structure_disclosure()` and `compare_claim()` | One module, Pydantic in and out, clear errors for missing key or timeout |
 | 10 | Disclosure extraction route and UI | Claims appear and can be edited before analysis |
 | 11 | Per-claim retrieval | Each claim gets its own threshold-filtered results |
-| 12 | Claim comparison with `claim_compare_v1` | One claim returns shared/missing elements and cited chunk IDs |
+| 12 | Versioned claim comparison (v2 is the workflow default; v1 remains selectable) | One claim returns element judgments, shared/missing elements, and supported passage labels |
 
 ## Day 4 — Saturday: workflow and results (cut line)
 
@@ -72,7 +100,7 @@ Plan for about 6–8 focused hours per day. If a day runs over, use the buffer d
 |---|---|
 | `scripts/evaluate_retrieval.py` | Recall@1, Recall@4 and threshold counts printed and copied into `docs/EVALUATION.md` |
 | `claim_compare_v2.md` and `scripts/compare_prompts.py` | v1 vs v2 table with schema-valid rate, discarded citations and reviewer notes |
-| Timing | Median and maximum time of 5 demo runs recorded |
+| Timing | Not yet recorded; collect 5 full demo runs before making an aggregate performance claim |
 | Focused tests | Extraction, chunking, citation validation, scoring, request validation |
 | README and architecture diagram | Someone else could set it up and understand it |
 | GitHub | Final push; repository history shows one commit per phase |
@@ -83,7 +111,7 @@ Cut in this order, from first to last:
 
 1. Stretch goals (DOCX, second provider, screen recording).
 2. Markdown export (keep JSON).
-3. Prompt v2 comparison (keep v1, and do not use the word "benchmarked").
+3. Prompt v2 comparison (already delivered and evaluated; retain v1 as the comparison baseline).
 4. Some of the focused tests (keep citation validation and scoring tests).
 
 **Never cut:** citation validation, the `Not scored` behaviour, the Python-calculated score, or the retrieval evaluation. These are what make the project credible.

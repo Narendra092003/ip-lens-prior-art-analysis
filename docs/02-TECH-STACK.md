@@ -4,7 +4,7 @@
 
 | Layer | Choice | Responsibility |
 |---|---|---|
-| Language | Python 3.11 or later | API, services, workflow, evaluation |
+| Language | Python 3.12 repository pin (`.python-version`; package metadata supports 3.11–3.13) | API, services, workflow, evaluation |
 | Workflow | LangGraph `StateGraph` | Explicit, typed analysis steps and conditional routing |
 | API | FastAPI + Uvicorn | Upload, extraction, analysis, corpus-status endpoints |
 | Vector store | ChromaDB persistent local client | Store and retrieve page-aware document chunks |

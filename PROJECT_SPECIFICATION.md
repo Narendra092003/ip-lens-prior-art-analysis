@@ -27,6 +27,7 @@ The project must demonstrate Python, LangGraph, FastAPI, ChromaDB, Gemini API, a
 - Include clearly labeled synthetic example documents and a demo disclosure. Never describe these as real patents.
 - Support a small **real-patent demo set**: 5–8 published, text-searchable patent PDFs that the user downloads manually from a public source (for example Google Patents or Espacenet), ideally in agricultural machinery. List each publication number and source URL in `examples/REAL_PATENTS.md`. Do not commit the PDFs themselves, and do not use them as the labeled evaluation set.
 - Log the duration of each workflow step and the full analysis so that any latency statement is based on measured timings.
+- Default `INDEX_LANGUAGES` to English (`en`); tag extracted pages as `en`, `de`, `fr`, or `unknown`, and exclude unselected languages.
 
 ### Out of scope
 
@@ -51,7 +52,7 @@ The project must demonstrate Python, LangGraph, FastAPI, ChromaDB, Gemini API, a
 3. The backend extracts text and source page markers, creates overlapping chunks, assigns stable document and chunk IDs, generates local embeddings, and stores the chunks and metadata in ChromaDB. Re-uploading the same file replaces its existing indexed chunks instead of duplicating them.
 4. The user enters an invention disclosure. The disclosure-extraction step returns a summary and numbered claims.
 5. The user reviews or edits the claims, then starts the analysis.
-6. The LangGraph workflow retrieves passages for every claim, compares them, validates citations against the retrieved passage IDs, computes the score, and returns a structured report.
+6. The LangGraph workflow retrieves passages for every claim, compares them, validates citations against the retrieved passage IDs, computes the score, and returns a structured report. Comparison prompt v2 is the workflow/API default; v1 remains selectable.
 7. The user reviews claim-level findings and evidence, then downloads JSON or Markdown.
 
 ## 4. Architecture and agent responsibilities
@@ -62,26 +63,28 @@ Build a bounded **LangGraph StateGraph** with explicit typed state and these spe
 
 1. **Disclosure Structuring Agent:** Uses the configured language model (Gemini in the MVP) with structured output to produce an invention summary and a list of claims. If the user supplies edited claims, preserve those claims for analysis.
 2. **Prior-Art Retrieval step:** Queries ChromaDB separately for each reviewed claim and returns the best passages with source metadata and similarity scores. This step is retrieval code, not a free-form model search.
-3. **Claim Comparison Agent:** For each claim with useful retrieved evidence, compares only that claim's passages. It returns a coverage estimate, shared elements, missing elements, uncertainty, and cited chunk IDs using a validated schema. If no useful passage is available, skip the model comparison and return an explicit no-evidence finding.
+3. **Claim Comparison Agent:** For each claim with useful retrieved evidence, compares only that claim's passages. The default v2 prompt returns independent technical-element judgments and passage labels; Python maps the labels to retrieved chunk IDs and calculates coverage. v1 remains selectable. If no useful passage is available, skip the model comparison and return an explicit no-evidence finding.
 4. **Report and Risk step:** Validates that cited IDs belong to retrieved results, assembles the final report, and computes the risk score deterministically in Python. Do not let the language model invent source metadata or calculate the final score.
 
 Treat uploaded patent text and retrieved passages as untrusted data, never as instructions. The comparison agent must not follow commands that appear inside document text.
 
 **Model-provider boundary.** `backend/app/services/gemini.py` is the only module that imports a model SDK. It exposes two task functions, `structure_disclosure()` and `compare_claim()`, that accept and return the project's own Pydantic models. No other module may depend on Gemini types. Replacing the provider (for example with a model hosted inside a company tenant for confidential disclosures) must therefore require changing only that module and its settings.
 
-**Timing.** Each LangGraph node records its duration. The analysis response and server log include per-step and total durations so that performance statements are measured, not assumed.
+**Timing.** Each executed LangGraph node records its duration in the report state. The API report includes per-step durations; the Markdown export and UI show their summed analysis duration. Do not claim separate server-side call-duration logging.
 
 ## 5. Retrieval, evidence, and scoring rules
 
 - Use ChromaDB's local embedding function and a persistent local client. Do not send corpus text to a separate embedding service.
 - Preserve, at minimum, `document_id`, `chunk_id`, original filename, display title, page number, chunk index, and text for every indexed passage.
 - Use a configurable chunk size and overlap. Default values may be approximately 1,200 characters and 180 characters of overlap; keep chunks within each source page so page citations remain accurate.
-- Use cosine similarity and a configurable retrieval depth (`top_k`, default 4, maximum 10). Define a useful passage as one whose converted retrieval similarity meets `MIN_SIMILARITY` (default 35 on a 0–100 scale). Make the threshold configurable without changing application code, and explain that it is a retrieval filter rather than a calibrated relevance probability.
+- Use cosine similarity and a configurable retrieval depth (`top_k`, default 4, maximum 10). Define a useful passage as one whose converted retrieval similarity meets `MIN_SIMILARITY` (default 50 on a 0–100 scale). This is the calibrated project default from the documented threshold sweep, but it remains an indicative threshold rather than a validated relevance probability.
 - Convert ChromaDB cosine distance `d` to a user-facing similarity percentage with `clamp(round((1 - d) * 100), 0, 100)`. Keep the raw distance in internal results for debugging and label the displayed value as retrieval similarity, not probability of relevance.
-- Every evidence-backed comparison must cite one or more retrieved chunk IDs. The backend must discard unknown IDs and must not render citations that were not retrieved. A no-evidence finding is the only exception: it must be generated by application code, explain that no useful passage was retrieved, and have an empty citation list.
+- Gemini cites only the prompt labels (`P1`, `P2`, …); Python maps labels to retrieved chunk IDs, discards unknown labels, and must not render citations that were not retrieved for the same claim.
+- Use four finding statuses: `evidence` (one or more citations validate), `no_evidence` (no passage reached the threshold), `no_supporting_passage` (useful passages were compared but none cited), and `unsupported` (all returned citations were invalid). Non-evidence statuses have no coverage or citations and never contribute to the score.
 - Show the source title, filename, page, relevant excerpt, and retrieval score beside each citation.
 - If no useful passage is found, say so plainly. Do not fabricate evidence or imply that the search covered documents outside the uploaded corpus.
 - Page numbers are source markers: PDF uses 1-based physical pages; TXT and Markdown use page 1 unless form-feed characters mark page breaks. If the DOCX stretch goal is built, DOCX uses page 1 unless explicit page breaks mark later pages; do not imply DOCX pagination is identical to Word's rendered pages.
+- Skip PDF pages with fewer than 50 non-whitespace characters and likely drawing sheets with a sheet/figure marker and fewer than 40 real words. Tag pages with a stopword heuristic as `en`, `de`, `fr`, or `unknown`; `INDEX_LANGUAGES` defaults to `en`. If every text page is excluded by language, fail ingestion with a clear error.
 
 Use this transparent **triage heuristic**:
 
@@ -99,9 +102,11 @@ Expose these endpoints:
 - `GET /api/corpus` — indexed passage count and embedding/storage mode.
 - `POST /api/documents` — multipart upload of multiple PDF, TXT, or MD files (DOCX only if the stretch goal is built); return indexed document IDs, passage counts, and per-file failures.
 - `POST /api/disclosures/extract` — JSON disclosure text; return an invention summary and candidate claims for review.
-- `POST /api/analyses` — JSON containing disclosure text, reviewed claims, and optional `top_k`; return a structured claim-by-claim report.
+- `POST /api/analyses` — JSON containing disclosure text, reviewed claims (plain strings or `{claim_id, text}` objects), optional `top_k`, and optional `prompt_version` (`v1` or `v2`, default `v2`); return the validated claim-by-claim report and JSON/Markdown exports.
 
 Use Pydantic request and response models. Return clear client errors for unsupported formats, oversized uploads, empty or unextractable documents, and invalid requests. Return a clear service error when Gemini is required but not configured or unavailable. Set a reasonable upload limit, default 25 MB per file.
+
+`POST /api/analyses` accepts reviewed-claim strings or `{ "claim_id", "text" }` objects. It accepts `prompt_version` values `v1` and `v2`, defaulting to `v2`; it also accepts optional `top_k`. Duplicate IDs and requests over `MAX_CLAIMS` return HTTP 400. Missing Gemini configuration returns 503; rate limits return 429; provider failures return a safe service error. Reports are not persisted by default.
 
 The analysis response must include:
 
@@ -109,8 +114,10 @@ The analysis response must include:
 - Invention summary and reviewed claims.
 - Overall risk score (nullable when no claim has valid evidence), band (including `Not scored` when applicable), and score formula/components.
 - For each claim: overlap estimate, shared elements, missing elements, assessment/uncertainty, and validated evidence citations.
+- Analysis settings: prompt version, Gemini model, `MIN_SIMILARITY`, `top_k`, and corpus passage count at analysis time.
 - Per-step and total durations in milliseconds.
 - A concise limitations statement.
+- JSON and Markdown exports generated from the same validated report; Markdown shortens excerpts for display and combines overlapping same-document/page citations while JSON retains the complete separate citations.
 
 ## 7. Interface requirements
 
@@ -121,10 +128,11 @@ Provide a simple Streamlit interface with these sections:
 - **Results:** Show the risk band and score components, claim-by-claim findings, evidence excerpts, source/page citations, uncertainty, and export buttons for JSON and Markdown.
 
 Include progress and actionable error messages. Clearly indicate when no documents have been indexed or Gemini is unavailable. Display a short notice explaining that disclosure text and retrieved excerpts are sent to the configured Gemini API for generation. Do not show secrets in logs or the UI.
+Explain the four finding statuses and show `Not assessed` for per-claim coverage when unavailable; reserve `Not scored` for the overall risk band. Default indexing to English through `INDEX_LANGUAGES`.
 
 ## 8. Technical requirements
 
-- Python 3.11 or later.
+- Python 3.12 pinned in `.python-version` for the reproducible environment; package metadata permits Python 3.11–3.13.
 - FastAPI and Uvicorn for the API.
 - LangGraph for the explicit workflow graph.
 - ChromaDB persistent local storage for vectors and metadata.
@@ -146,10 +154,10 @@ The repository should be presentable to an interviewer and include:
 - A short interview demo script and an architecture diagram.
 - One Git commit per completed phase, so the repository history shows how the project was built.
 - `docs/EVALUATION.md` with the **minimum required evaluation**, reporting only measurements actually collected:
-  - **Retrieval:** 10–15 hand-labeled query claims over the synthetic corpus, each linked to its expected relevant chunk IDs. Report Recall@4 (and Recall@1), plus how many relevant and irrelevant passages survive `MIN_SIMILARITY`. Record the dataset version, `top_k`, threshold, chunk size, and overlap.
-  - **Prompt comparison:** run `claim_compare_v1` and an improved `claim_compare_v2` on the same 6–8 claim/evidence cases. Report, side by side, the schema-valid rate, the number of unknown or invalid citations discarded, and a short reviewer note per case on whether shared and missing elements are supported by the cited passage.
-  - **Timing:** median and maximum end-to-end analysis time for the demo disclosure, from the logged durations.
-- `scripts/evaluate_retrieval.py` and `scripts/compare_prompts.py` that produce those numbers reproducibly. Keep retrieval metrics separate from model comparison quality; do not claim claim-element accuracy beyond what the reviewer notes support.
+  - **Retrieval:** 15 hand-labeled claims, including 13 with relevant passages. Record chunk-level Recall@1/4 (1/13 and 10/13), document-level Recall@1/4 (12/13 and 13/13), threshold sweep, dataset version, `top_k`, threshold, chunk size, and overlap.
+  - **Prompt comparison:** run v1 and v2 three times each on the same seven cases (four demo and three held-out). Report schema validity, discarded citations, status agreement, coverage spread, claim-reference elements, and source-checked reviewer notes; do not claim general accuracy from this small sample.
+  - **Timing:** before making performance claims, collect median and maximum end-to-end time from five complete demo analyses. No such aggregate timing result is currently recorded.
+- `scripts/evaluate_retrieval.py` and `scripts/compare_prompts.py` produce retrieval and prompt-comparison measurements. Keep these separate from model comparison quality; do not claim claim-element accuracy beyond what the reviewer notes support.
 - A clean `.env.example` and clear startup instructions.
 - Focused automated checks for document extraction, page-aware chunking, indexing/replacement, retrieval filtering, citation validation, risk scoring, and API validation.
 
@@ -160,12 +168,12 @@ The repository should be presentable to an interviewer and include:
 - PDF, TXT, and Markdown uploads preserve source and page metadata for every indexed chunk.
 - A disclosure can be structured, reviewed, analyzed, and exported through the UI.
 - Every displayed evidence citation resolves to an actual retrieved chunk and includes a source and page.
-- When no claim has a valid citation, the UI and report show `Not scored` rather than a Low risk band.
+- The four evidence statuses are clearly explained; only `evidence` findings contribute to the score. When none qualify, UI and report show `Not scored` rather than a Low risk band.
 - The risk formula and its limitations are visible and consistent between API and UI.
 - Unsupported files, empty or scanned-only documents, missing configuration, and model errors produce understandable messages.
 - Focused automated checks cover core parsing, retrieval, scoring, citation-validation, and request-validation behavior.
 - The interface and README clearly state that the result is a human-review aid and not legal advice.
-- `docs/EVALUATION.md` contains real Recall@k, prompt v1-vs-v2, and timing results from the scripts.
+- `docs/EVALUATION.md` contains the collected Recall@k and prompt v1-vs-v2 measurements and clearly identifies limitations. Add aggregate timing results only after collecting the five full demo runs described above.
 - No module outside `services/gemini.py` imports a model SDK.
 
 ## 11. Suggested repository layout
@@ -196,7 +204,8 @@ examples/
   demo_disclosure.md
   synthetic_prior_art_*.txt
   REAL_PATENTS.md            # publication numbers + source URLs; PDFs not committed
-  eval/retrieval_labels.json # hand-labeled query claims -> expected chunk IDs
+  eval/retrieval_labels.json # hand-labeled query claims and phrases
+  eval/compare_cases.json    # v1/v2 prompt-comparison cases
   eval/compare_cases.json    # claim/evidence cases for prompt comparison
 docs/
   00-README.md
@@ -225,6 +234,7 @@ DESIGN-CHANGES.md
 scripts/
   evaluate_retrieval.py
   compare_prompts.py
+outputs/                     # generated report examples, ignored by Git
 tests/
   # focused checks for parsing, retrieval, scoring, and citation validation
 outputs/
@@ -241,19 +251,19 @@ Build the application in this order. Complete and review one phase before starti
 
 1. **Workspace and repository scaffold:** create the directory tree in Section 11, project metadata, lockfile, `.gitignore`, `.env.example`, and README. Add no application behavior yet.
 2. **Configuration and contracts:** add environment-backed settings and Pydantic request/response schemas. Confirm that secret values are never included in serialized responses or logs.
-3. **Document extraction service:** implement TXT/Markdown extraction, then PDF page extraction. (DOCX is a stretch goal.) Return normalized text with source filename, title, and page markers; handle unsupported, empty, unreadable, and scanned-only inputs.
+3. **Document extraction service:** implement TXT/Markdown extraction and searchable PDF page extraction. (DOCX is unsupported.) Return normalized text with source filename, title, 1-based/source page markers, language tags, skipped drawing-page counts, and clear errors for unsupported, empty, unreadable, scanned-only, and all-excluded-language inputs.
 4. **Chunking service:** split extracted text within source-page boundaries, apply configured overlap, and generate stable document and chunk IDs. Verify that every chunk retains its source metadata.
 5. **Vector-store service:** implement persistent ChromaDB storage with local embeddings, indexing, delete-and-replace behavior, corpus counts, and similarity search. Keep all runtime data under ignored `data/`.
 6. **API foundation:** start FastAPI and implement `GET /health` and `GET /api/corpus` using the shared configuration and vector-store service.
-7. **Document-ingestion service and route:** connect extraction, chunking, and indexing in `POST /api/documents`; enforce size limits and return per-file results.
+7. **Document-ingestion service and route:** connect extraction, chunking, and indexing in `POST /api/documents`; enforce per-file size limits and return per-file results. `scripts/ingest_folder.py` reuses this ingestion service for bulk folders.
 8. **Corpus interface:** connect the Streamlit Corpus section to the API and show upload progress, errors, counts, and the data-handling notice.
 9. **Gemini client service:** centralize provider configuration, structured-output parsing, timeouts, and provider-error handling in `backend/app/services/gemini.py`.
 10. **Disclosure extraction:** implement the disclosure schema and `POST /api/disclosures/extract`, then connect the Disclosure interface and allow claim editing before analysis.
 11. **Claim retrieval service:** implement per-claim ChromaDB search with threshold filtering and source metadata. Confirm each reviewed claim gets its own result list.
-12. **Claim comparison service:** compare one reviewed claim against only its retrieved passages, return validated structured output, and skip the model when no passage meets the usefulness threshold.
+12. **Claim comparison service:** compare one reviewed claim against only its retrieved passages, return validated structured output, and skip the model when no passage meets the usefulness threshold. Keep v1 and v2 prompts; use v2 by default and calculate its element coverage in Python.
 13. **LangGraph workflow:** add typed graph state, per-node timing, and connect disclosure input, retrieval, comparison, citation validation, and deterministic reporting as explicit graph nodes. Do not place parsing, retrieval, scoring, or API route logic in Streamlit.
 14. **Citation validation and risk scoring:** accept only citations returned for the same claim, then compute the documented score in Python. Return `Not scored` when no valid citation exists.
-15. **Analysis API and report exports:** connect the LangGraph workflow to `POST /api/analyses`; return the specified report schema and generate JSON and Markdown exports from that same validated report.
+15. **Analysis API and report exports:** connect the LangGraph workflow to `POST /api/analyses`; preserve supplied claim IDs from objects or assign sequential IDs to strings; return analysis settings and generate JSON/Markdown exports from the same validated report.
 16. **Results interface:** connect the Streamlit Results section to the analysis API and show claim findings, evidence, citations, uncertainty, score components, and export controls.
 17. **Evaluation, focused checks, and portfolio polish:** add the hand-labeled synthetic retrieval set and evaluation script, `claim_compare_v2` and the prompt-comparison script, the real-patent demo set, focused automated checks, architecture diagram, interview demo script, evaluation note, and final README walkthrough. Record only measurements that were actually collected.
 

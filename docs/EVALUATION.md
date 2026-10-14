@@ -46,7 +46,7 @@ These observations define the changes for `claim_compare_v2`.
 
 **First iteration.** The first v2 prompt merged several features into compound elements (for example "transmission ratio and selected operating band during work and turns"), so one new feature caused the whole element to be marked missing: the all-or-nothing problem returned at element level. A prompt-only change (one feature per element; conditions split from the actions they control) fixed the splitting.
 
-**Results on the demo claims** (`examples/demo_claims.json`), two runs:
+**Initial two-run check on the demo claims** (`examples/demo_claims.json`; superseded by the seven-case comparison below):
 
 | Claim | Run 1 | Run 2 |
 |---|---|---|
@@ -62,8 +62,45 @@ These observations define the changes for `claim_compare_v2`.
 - Claims 01 and 04 gave identical results in both runs.
 
 **Remaining issues**
-- Individual element judgements still change between runs at temperature 0.1: claim 03's stored-sequence element was judged covered in run 1 and missing in run 2; claim 02's operating-band element changed in the same way. Calculating coverage in code stabilises the formula, not the judgements feeding it.
-- v2 marked the stored headland sequence as "inferred" although synthetic document 4 states it explicitly; the judgement is cautious rather than wrong.
-- Retrieval limit: claim 03's approach-region condition is described in synthetic document 4 ("pass-end region", page 1), but that passage was not among the top 4 retrieved for the whole claim. Marking it missing was therefore correct given the evidence supplied. Retrieving per element is a likely improvement.
+- Element-level run-to-run changes are not fully recorded in the initial two-run table. **[unverified]** The earlier reviewer note that claim 03's stored-sequence element and claim 02's operating-band element changed between particular runs cannot be checked from the stored comparison output. Calculating coverage in code stabilizes the formula, not the model judgments feeding it.
+- The sample report labels the stored headland sequence as inferred, although synthetic document 4 explicitly describes and claims a stored headland sequence. In that sample, the element appears to have been under-classified.
+- Retrieval limit: claim 03's source describes position approaching a "pass-end region" on synthetic document 4 page 2, but that text was not among the top-four passages retrieved for the claim. Marking the approach-region feature missing was therefore consistent with the evidence supplied to that run. Retrieving per element is a possible improvement.
 
-**Caveat.** v2 was developed on these same four demo claims. The formal v1-versus-v2 comparison must also include claims that were not used for tuning, and should repeat each run to measure stability.
+**Caveat.** v2 was developed on the four demo claims. The seven-case comparison below adds three held-out claims and repeats each prompt three times; its size and held-out case difficulty limit what it can establish.
+
+## Prompt comparison (v1 vs v2)
+
+**Setup.** 7 cases: the 4 demo claims (used while developing v2) and 3 held-out claims from the labelled set (q01, q03, q09). Retrieval run once per case; each prompt run 3 times on the same passages. Model `gemini-3.5-flash-lite`, `MIN_SIMILARITY` 50, `top_k` 4, 4-second pause between calls. Script: `scripts/compare_prompts.py`.
+
+| Measure | v1 | v2 |
+|---|---|---|
+| Schema-valid results | 21/21 | 21/21 |
+| Discarded citations | 0 | 0 |
+| Cases with the same status in all 3 runs | 6/7 | 6/7 |
+| Coverage spread across runs, mean | 7.5 | 2.0 |
+| Coverage spread across runs, maximum | 25 | 12 |
+| Claim references reported as elements | 7 | 0 |
+
+**Findings.**
+
+- v2's coverage is more stable in this sample: mean spread 2.0 vs 7.5. Demo claim 01 scored 65 / 80 / 80 with v1 and 79 / 79 / 79 with v2.
+- v2 reported no claim references as elements; v1 reported seven across its runs.
+- Both versions gave mixed statuses for demo claim 03: `evidence` and `no_supporting_passage` occurred across its three runs. This comparison output does not report which element caused each status.
+
+**Limitations.**
+
+- The held-out claims scored 100 in every run with both prompts. They are single-feature claims closely matching one passage. These results do not show whether the changes generalize to harder cases.
+- The script measures schema validity and run-to-run consistency, not correctness; correctness was reviewed manually below.
+- Seven cases and three runs per case is a small sample, using one model.
+
+**Reviewer notes (v2).** Checked against the synthetic source documents, sample report, and comparison results. Per-run element details that are not present in those records are marked.
+
+- **Demo 01 — Correct.** The synthetic tractor documents describe controllers, an operator terminal, and position sensing. None of the five synthetic documents describes a forward optical row-end sensor; it is the only missing element in the sample report.
+- **Demo 02 — Partly correct.** Synthetic document 1 describes forming an engine-load estimate and adjusting the transmission ratio to maintain engine load within a selected range. That is not the same as keeping travel response within a selected operating band. The document does not describe this load-responsive ratio control during a turn. v2 coverage was 44, 50, and 38. **[unverified]** The comparison output does not show enough element-level detail to confirm that the variation came specifically from the operating-band element.
+- **Demo 03 — Partly correct.** Synthetic document 4 describes a stored headland sequence and says a sequence may start when position approaches a pass-end region; this text is on source page 2, not page 1. The top-four retrieved passages in the comparison run were from page 3 or other documents and did not include that condition. The synthetic documents do not describe optical confirmation of row termination or a configured observation count. The sample report labels the stored-sequence element inferred and marks the other listed conditions missing. **[unverified]** The available comparison table does not expose the element labels for all three runs, so the claim that the stored-sequence element changed between inferred and missing, or caused the status flip, cannot be confirmed.
+- **Demo 04 — Correct.** No synthetic prior-art document describes requesting confirmation because an optical sensor is obscured or observations disagree. Document 4 does pause when implement lift is not confirmed, which is a different condition.
+- **q01 — Correct.** Synthetic document 1 explicitly describes adjusting the transmission ratio based on engine load, including in its claims. Both prompts returned coverage 100 in all three runs.
+- **q03 — Correct.** Synthetic document 2 states that the controller raises the hitch by a bounded amount when measured draft exceeds the upper edge of a target band. Both prompts returned coverage 100 in all three runs.
+- **q09 — Correct.** Synthetic document 5 claim 1 describes selecting a field or road target and adjusting tire pressure toward it. Both prompts returned coverage 100 in all three runs.
+
+**Decision.** v2 is the workflow and API default, based on lower observed coverage spread and no claim-reference elements in this small comparison. v1 remains available for comparison.
