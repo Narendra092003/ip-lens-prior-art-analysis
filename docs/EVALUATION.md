@@ -39,3 +39,31 @@ Observed on a real run of `claim_compare_v1` against the demo disclosure:
 - Disclosure extraction is not deterministic: two extractions of the same disclosure produced differently ordered and worded claims.
 
 These observations define the changes for `claim_compare_v2`.
+
+## Prompt v2 observations (claim comparison)
+
+**What v2 changes.** v2 splits each claim into single-feature technical elements and judges each one separately as `explicit`, `inferred`, `partial` or `missing`, with supporting passage labels. Claim references such as "The system of claim 1" are excluded. Coverage is calculated in Python from the element statuses (explicit = 1, inferred = 0.75, partial = 0.5, missing = 0, averaged and scaled to 0–100). Comparison runs at temperature 0.1. v1 is unchanged and remains the workflow default.
+
+**First iteration.** The first v2 prompt merged several features into compound elements (for example "transmission ratio and selected operating band during work and turns"), so one new feature caused the whole element to be marked missing: the all-or-nothing problem returned at element level. A prompt-only change (one feature per element; conditions split from the actions they control) fixed the splitting.
+
+**Results on the demo claims** (`examples/demo_claims.json`), two runs:
+
+| Claim | Run 1 | Run 2 |
+|---|---|---|
+| 01 (components incl. optical sensor) | evidence, 83 | evidence, 83 |
+| 02 (transmission and operating band) | evidence, 50 | evidence, 25 |
+| 03 (sequence enabled only after optical confirmation) | evidence, 19 | no supporting passage |
+| 04 (operator prompt when sensor obscured) | no supporting passage | no supporting passage |
+
+**Improvements over v1**
+- Claim references are no longer treated as elements.
+- Known features are cited even when another element of the claim is new (claim 03, run 1: stored headland sequence cited from synthetic document 4; optical confirmation and observation count marked missing).
+- Each judgement is visible per element, which makes the result easier for a reviewer to check.
+- Claims 01 and 04 gave identical results in both runs.
+
+**Remaining issues**
+- Individual element judgements still change between runs at temperature 0.1: claim 03's stored-sequence element was judged covered in run 1 and missing in run 2; claim 02's operating-band element changed in the same way. Calculating coverage in code stabilises the formula, not the judgements feeding it.
+- v2 marked the stored headland sequence as "inferred" although synthetic document 4 states it explicitly; the judgement is cautious rather than wrong.
+- Retrieval limit: claim 03's approach-region condition is described in synthetic document 4 ("pass-end region", page 1), but that passage was not among the top 4 retrieved for the whole claim. Marking it missing was therefore correct given the evidence supplied. Retrieving per element is a likely improvement.
+
+**Caveat.** v2 was developed on these same four demo claims. The formal v1-versus-v2 comparison must also include claims that were not used for tuning, and should repeat each run to measure stability.
