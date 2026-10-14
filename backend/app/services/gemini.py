@@ -290,9 +290,14 @@ def compare_claim(
     )
     passage_blocks = []
     label_to_chunk_id: dict[str, str] = {}
+    label_to_source: dict[str, str] = {}
     for index, passage in enumerate(passages, start=1):
         label = f"P{index}"
         label_to_chunk_id[label] = str(getattr(passage, "chunk_id", ""))
+        label_to_source[label] = (
+            f"{getattr(passage, 'filename', 'retrieved passage')}, "
+            f"page {getattr(passage, 'page', 'unknown')}"
+        )
         passage_blocks.append(
             f"<passage label={json.dumps(label)}>\n"
             f"passage_label: {label}\n"
@@ -318,7 +323,11 @@ def compare_claim(
             client=client,
             temperature=_COMPARISON_TEMPERATURE,
         )
-        return ClaimComparisonV2Result.model_validate(provider_result.model_dump())
+        return ClaimComparisonV2Result(
+            **provider_result.model_dump(exclude={"assessment", "uncertainty"}),
+            assessment=_replace_passage_labels(provider_result.assessment, label_to_source),
+            uncertainty=_replace_passage_labels(provider_result.uncertainty, label_to_source),
+        )
 
     provider_result = _generate_structured(
         prompt,
@@ -338,10 +347,19 @@ def compare_claim(
         shared_elements=provider_result.shared_elements,
         missing_elements=provider_result.missing_elements,
         coverage_estimate=provider_result.coverage_estimate,
-        assessment=provider_result.assessment,
-        uncertainty=provider_result.uncertainty,
+        assessment=_replace_passage_labels(provider_result.assessment, label_to_source),
+        uncertainty=_replace_passage_labels(provider_result.uncertainty, label_to_source),
         cited_chunk_ids=cited_chunk_ids,
         discarded_citation_count=discarded_citation_count,
+    )
+
+
+def _replace_passage_labels(text: str, label_to_source: dict[str, str]) -> str:
+    """Replace any model-returned P-labels in narrative text with source metadata."""
+    return re.sub(
+        r"(?<![A-Za-z0-9_])P\d+\b",
+        lambda match: label_to_source.get(match.group(0), "an unmatched passage reference"),
+        text,
     )
 
 

@@ -49,17 +49,29 @@ class DisclosureExtractResponse(ContractModel):
     claims: list[str]
 
 
-class AnalysisRequest(ContractModel):
-    disclosure_text: str = Field(min_length=1, max_length=100_000)
-    invention_summary: str | None = Field(default=None, max_length=10_000)
-    reviewed_claims: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
-    top_k: int | None = Field(default=None, ge=1, le=10)
-    prompt_version: Literal["v1", "v2"] = "v1"
-
-
 class ReviewedClaim(ContractModel):
     claim_id: str
     text: str = Field(min_length=1)
+
+
+class AnalysisRequest(ContractModel):
+    disclosure_text: str = Field(min_length=1, max_length=100_000)
+    invention_summary: str | None = Field(default=None, max_length=10_000)
+    reviewed_claims: list[Annotated[str, Field(min_length=1)] | ReviewedClaim] = Field(
+        min_length=1
+    )
+    top_k: int | None = Field(default=None, ge=1, le=10)
+    prompt_version: Literal["v1", "v2"] = "v1"
+
+    @model_validator(mode="after")
+    def validate_unique_claim_ids(self) -> "AnalysisRequest":
+        claim_ids = [
+            claim.claim_id if isinstance(claim, ReviewedClaim) else f"claim-{index}"
+            for index, claim in enumerate(self.reviewed_claims, start=1)
+        ]
+        if len(claim_ids) != len(set(claim_ids)):
+            raise ValueError("reviewed claim IDs must be unique")
+        return self
 
 
 class EvidenceCitation(ContractModel):
@@ -136,6 +148,14 @@ class ScoreComponents(ContractModel):
     formula: str = "round(0.65 * max_claim_coverage + 0.35 * best_cited_retrieval_similarity)"
 
 
+class AnalysisSettings(ContractModel):
+    comparison_prompt_version: Literal["v1", "v2"]
+    gemini_model: str
+    min_similarity: int = Field(ge=0, le=100)
+    top_k: int = Field(ge=1, le=10)
+    corpus_passage_count: int = Field(ge=0)
+
+
 class AnalysisReport(ContractModel):
     analysis_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -144,6 +164,7 @@ class AnalysisReport(ContractModel):
     risk_score: int | None = Field(default=None, ge=0, le=100)
     risk_band: Literal["Low", "Moderate", "High", "Not scored"]
     score_components: ScoreComponents
+    analysis_settings: AnalysisSettings
     claims: list[ClaimFinding]
     durations_ms: dict[str, float] = Field(default_factory=dict)
     limitations: str

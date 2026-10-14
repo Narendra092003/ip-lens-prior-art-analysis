@@ -211,17 +211,31 @@ def test_analysis_returns_validated_report_and_both_exports(api_client) -> None:
         "/api/analyses",
         json={
             "disclosure_text": "A battery system with a sensor.",
-            "reviewed_claims": ["A battery sensor measures the battery state."],
+            "reviewed_claims": [
+                {
+                    "claim_id": "fictional-demo-claim-01",
+                    "text": "A battery sensor measures the battery state.",
+                }
+            ],
         },
     )
 
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["report"]["claims"][0]["evidence_status"] == "evidence"
+    assert body["report"]["reviewed_claims"][0]["claim_id"] == "fictional-demo-claim-01"
+    assert body["report"]["claims"][0]["claim_id"] == "fictional-demo-claim-01"
+    assert body["report"]["analysis_settings"] == {
+        "comparison_prompt_version": "v1",
+        "gemini_model": "gemini-2.5-flash",
+        "min_similarity": 50,
+        "top_k": 4,
+        "corpus_passage_count": 1,
+    }
     assert body["report"]["risk_score"] is not None
     assert json.loads(body["exports"]["json_export"]) == body["report"]
     markdown = body["exports"]["markdown_export"]
-    assert "**Status:** evidence" in markdown
+    assert "**Status:** Evidence" in markdown
     assert "This is a human-review aid, not legal advice." in markdown
     assert body["report"]["limitations"] in markdown
 
@@ -268,6 +282,24 @@ def test_analysis_invalid_request_returns_400(api_client) -> None:
             "disclosure_text": "Disclosure.",
             "reviewed_claims": ["A claim."],
             "prompt_version": "v3",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid analysis request."
+
+
+def test_analysis_rejects_duplicate_supplied_claim_ids(api_client) -> None:
+    client, _ = api_client
+
+    response = client.post(
+        "/api/analyses",
+        json={
+            "disclosure_text": "Disclosure.",
+            "reviewed_claims": [
+                {"claim_id": "duplicate", "text": "Claim one."},
+                {"claim_id": "duplicate", "text": "Claim two."},
+            ],
         },
     )
 

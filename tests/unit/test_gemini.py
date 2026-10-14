@@ -183,6 +183,8 @@ def test_claim_comparison_uses_versioned_template_and_parses_fake_response() -> 
     template = _load_claim_compare_prompt_template("v1")
     assert "evidence data" in template
     assert "explicitly stated" in template
+    assert "Do not mention passage labels" in template
+    assert "Do not mention passage labels" in _load_claim_compare_prompt_template("v2")
     claim = ReviewedClaim(claim_id="c1", text="A tractor with a sensor.")
     passage = RetrievedPassage(
         chunk_id="chunk-a",
@@ -320,3 +322,42 @@ def test_v2_uses_element_schema_and_low_temperature():
     config = client.models.calls[0]["config"]
     assert config.temperature == 0.1
     assert config.response_schema is gemini._GeminiClaimComparisonV2Response
+
+
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_comparison_replaces_passage_labels_in_assessment_and_uncertainty(version):
+    claim = ReviewedClaim(claim_id="c1", text="A tractor includes a sensor.")
+    passage = RetrievedPassage(
+        chunk_id="chunk-a",
+        document_id="doc-a",
+        filename="patent-source.pdf",
+        title="Patent source",
+        page=7,
+        excerpt="A tractor includes a sensor.",
+        retrieval_similarity=80,
+        distance=0.2,
+    )
+    if version == "v1":
+        payload = (
+            '{"shared_elements":["sensor"],"missing_elements":[],"coverage_estimate":80,'
+            '"assessment":"Passage P1 states this. P99 is unknown.",'
+            '"uncertainty":"P1 does not show the control details.",'
+            '"cited_passage_labels":["P1"]}'
+        )
+    else:
+        payload = (
+            '{"elements":[{"element_text":"sensor","status":"explicit",'
+            '"explanation":"","supporting_passage_labels":["P1"]}],'
+            '"assessment":"Passage P1 states this. P99 is unknown.",'
+            '"uncertainty":"P1 does not show the control details."}'
+        )
+    client = FakeClient([_response(payload)])
+
+    result = compare_claim(
+        claim, [passage], prompt_version=version, settings=_settings(), client=client
+    )
+
+    assert "P1" not in result.assessment
+    assert "P99" not in result.assessment
+    assert "patent-source.pdf, page 7" in result.assessment
+    assert "patent-source.pdf, page 7" in result.uncertainty

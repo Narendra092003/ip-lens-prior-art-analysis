@@ -164,6 +164,13 @@ def test_workflow_routes_claims_records_durations_and_calls_gemini_once(tmp_path
     assert result["report"].score_components == result["score_components"]
     assert "unvalidated triage heuristic" in result["report"].limitations
     assert result["report"].durations_ms == result["durations_ms"]
+    assert result["report"].analysis_settings.model_dump() == {
+        "comparison_prompt_version": "v1",
+        "gemini_model": "test-model",
+        "min_similarity": 85,
+        "top_k": settings.default_top_k,
+        "corpus_passage_count": 1,
+    }
     assert len(client.models.calls) == 1
     below_threshold = result["retrieval_results"]["claim-2"]
     assert below_threshold.passages == []

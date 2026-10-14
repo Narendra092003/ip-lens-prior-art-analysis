@@ -95,8 +95,10 @@ def analyze(
         raise HTTPException(status_code=503, detail="Gemini is not configured.")
 
     reviewed_claims = [
-        ReviewedClaim(claim_id=f"claim-{index}", text=text)
-        for index, text in enumerate(request.reviewed_claims, start=1)
+        claim
+        if isinstance(claim, ReviewedClaim)
+        else ReviewedClaim(claim_id=f"claim-{index}", text=claim)
+        for index, claim in enumerate(request.reviewed_claims, start=1)
     ]
     try:
         state = run_analysis(

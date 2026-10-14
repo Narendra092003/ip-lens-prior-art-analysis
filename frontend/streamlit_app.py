@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.app.config import get_settings
+from frontend.report_display import claim_status_display, display_citations
 
 settings = get_settings()
 api_base_url = settings.api_base_url
@@ -213,5 +214,168 @@ if st.session_state.disclosure_summary:
     else:
         st.session_state.reviewed_claims = edited_claims
 
+    prompt_version = st.selectbox(
+        "Comparison prompt version",
+        options=["v1", "v2"],
+        index=0,
+        help="Choose which claim-comparison prompt to use for this analysis.",
+    )
+    if st.button(
+        "Run analysis",
+        disabled=(
+            not api_ready
+            or not disclosure_text.strip()
+            or not st.session_state.reviewed_claims
+            or any(not claim.strip() for claim in st.session_state.reviewed_claims)
+        ),
+    ):
+        analysis_payload = {
+            "disclosure_text": disclosure_text,
+            "invention_summary": st.session_state.disclosure_summary,
+            "reviewed_claims": [
+                {"claim_id": f"claim-{index}", "text": claim}
+                for index, claim in enumerate(st.session_state.reviewed_claims, start=1)
+            ],
+            "prompt_version": prompt_version,
+        }
+        try:
+            with st.spinner("Retrieving passages and comparing reviewed claims…"):
+                analysis_response = requests.post(
+                    f"{api_base_url}/api/analyses",
+                    json=analysis_payload,
+                    timeout=(5, 300),
+                )
+            if analysis_response.ok:
+                st.session_state.analysis_result = analysis_response.json()
+                st.success("Analysis completed.")
+            else:
+                try:
+                    detail = analysis_response.json().get("detail", "")
+                except (ValueError, AttributeError):
+                    detail = ""
+                if analysis_response.status_code == 400 and "At most" in detail:
+                    st.error(f"Too many claims. {detail}")
+                elif analysis_response.status_code == 400:
+                    st.error(detail or "The analysis request is invalid. Review the disclosure and claims.")
+                elif analysis_response.status_code == 429:
+                    st.error("Gemini is rate limited. Wait briefly, then try again.")
+                elif analysis_response.status_code == 503 and "configured" in detail.lower():
+                    st.error("Gemini is not configured. Set GEMINI_API_KEY in .env and restart the API.")
+                elif analysis_response.status_code in {502, 503, 504}:
+                    st.error("The model provider could not complete the analysis. Try again later.")
+                else:
+                    st.error(detail or f"Analysis failed (HTTP {analysis_response.status_code}).")
+        except requests.RequestException:
+            st.error("The analysis request failed. Confirm the API is running and try again.")
+
 st.header("Results")
-st.caption("Claim findings, evidence, and report exports will be added in a later phase.")
+if "analysis_result" in st.session_state:
+    analysis_result = st.session_state.analysis_result
+    report = analysis_result.get("report", {})
+    exports = analysis_result.get("exports", {})
+
+    risk_score = report.get("risk_score")
+    risk_band = report.get("risk_band", "Not scored")
+    score_label = "Not scored" if risk_score is None else f"{risk_score}/100"
+    st.subheader(f"Risk band: {risk_band}")
+    st.metric("Novelty-risk triage score", score_label)
+    score_components = report.get("score_components", {})
+    coverage_component = score_components.get("max_claim_coverage")
+    similarity_component = score_components.get("best_cited_retrieval_similarity")
+    component_columns = st.columns(2)
+    with component_columns[0]:
+        st.metric(
+            "Maximum claim coverage",
+            "Not scored" if coverage_component is None else f"{coverage_component}/100",
+        )
+    with component_columns[1]:
+        st.metric(
+            "Best cited retrieval similarity",
+            "Not scored" if similarity_component is None else f"{similarity_component}/100",
+        )
+    st.caption(f"Formula: `{score_components.get('formula', '')}`")
+    st.info("The score is a triage heuristic over the uploaded documents, not a legal conclusion.")
+
+    analysis_settings = report.get("analysis_settings", {})
+    st.subheader("Settings")
+    setting_columns = st.columns(5)
+    setting_columns[0].metric("Prompt version", analysis_settings.get("comparison_prompt_version", "—"))
+    setting_columns[1].metric("Gemini model", analysis_settings.get("gemini_model", "—"))
+    setting_columns[2].metric("MIN_SIMILARITY", analysis_settings.get("min_similarity", "—"))
+    setting_columns[3].metric("top_k", analysis_settings.get("top_k", "—"))
+    setting_columns[4].metric("Corpus passages", analysis_settings.get("corpus_passage_count", "—"))
+
+    for index, finding in enumerate(report.get("claims", []), start=1):
+        status_key = finding.get("evidence_status", "unsupported")
+        status_label, status_explanation = claim_status_display(
+            finding,
+            analysis_settings.get("min_similarity", 0),
+        )
+        with st.expander(f"Claim {index} · {status_label}"):
+            st.write(finding.get("claim_text", ""))
+            st.markdown(f"**Status: {status_label}.** {status_explanation}")
+            coverage = finding.get("coverage_estimate")
+            st.write(
+                "Coverage estimate: Not assessed"
+                if coverage is None
+                else f"Coverage estimate: {coverage}/100"
+            )
+
+            st.markdown("**Shared elements**")
+            shared = finding.get("shared_elements", [])
+            if shared:
+                for element in shared:
+                    st.text(f"• {element}")
+            else:
+                st.caption("None reported.")
+
+            st.markdown("**Missing elements**")
+            missing = finding.get("missing_elements", [])
+            if missing:
+                for element in missing:
+                    st.text(f"• {element}")
+            else:
+                st.caption("None reported.")
+
+            st.markdown("**Citations**")
+            citations = display_citations(finding.get("citations", []))
+            if citations:
+                for citation in citations:
+                    st.write(
+                        f"{citation.get('filename', 'Unknown file')} · "
+                        f"page {citation.get('page', '?')} · "
+                        f"retrieval similarity {citation.get('retrieval_similarity', '?')}"
+                    )
+                    if citation.get("combines_adjacent_passages"):
+                        st.caption("Combines adjacent passages with overlapping excerpts.")
+                    st.text(citation.get("excerpt", ""))
+            else:
+                st.caption("No citations.")
+
+    st.markdown("**Limitations**")
+    st.write(report.get("limitations", ""))
+    durations = report.get("durations_ms", {})
+    total_duration_seconds = sum(
+        value for value in durations.values() if isinstance(value, (int, float))
+    ) / 1000
+    st.caption(f"Total analysis duration: {total_duration_seconds:.1f} seconds")
+
+    download_columns = st.columns(2)
+    with download_columns[0]:
+        st.download_button(
+            "Download JSON report",
+            data=exports.get("json_export", ""),
+            file_name="ip_lens_report.json",
+            mime="application/json",
+            disabled=not exports.get("json_export"),
+        )
+    with download_columns[1]:
+        st.download_button(
+            "Download Markdown report",
+            data=exports.get("markdown_export", ""),
+            file_name="ip_lens_report.md",
+            mime="text/markdown",
+            disabled=not exports.get("markdown_export"),
+        )
+else:
+    st.caption("Run an analysis to see claim findings, evidence, score components, and report downloads.")

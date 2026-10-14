@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from backend.app.config import Settings, get_settings
 from backend.app.schemas import (
+    AnalysisSettings,
     AnalysisReport,
     ClaimFinding,
     EvidenceCitation,
@@ -35,6 +36,7 @@ class AnalysisState(TypedDict):
     analysis_id: str
     disclosure_text: str
     invention_summary: str
+    analysis_settings: AnalysisSettings
     reviewed_claims: list[ReviewedClaim]
     current_claim_index: int
     retrieval_results: dict[str, ClaimRetrieval]
@@ -66,10 +68,20 @@ def run_analysis(
 ) -> AnalysisState:
     """Execute the graph and return its final state, including safe errors."""
     active_settings = settings or get_settings()
+    active_store = vector_store if vector_store is not None else VectorStore(active_settings)
+    active_top_k = top_k if top_k is not None else active_settings.default_top_k
+    analysis_settings = AnalysisSettings(
+        comparison_prompt_version=prompt_version,
+        gemini_model=active_settings.gemini_model,
+        min_similarity=active_settings.min_similarity,
+        top_k=active_top_k,
+        corpus_passage_count=active_store.count(),
+    )
     initial: AnalysisState = {
         "analysis_id": analysis_id or str(uuid4()),
         "disclosure_text": disclosure_text,
         "invention_summary": invention_summary,
+        "analysis_settings": analysis_settings,
         "reviewed_claims": list(reviewed_claims),
         "current_claim_index": 0,
         "retrieval_results": {},
@@ -88,7 +100,7 @@ def run_analysis(
     }
     graph = _build_graph(
         settings=active_settings,
-        vector_store=vector_store,
+        vector_store=active_store,
         gemini_client=gemini_client,
         top_k=top_k,
         prompt_version=prompt_version,
@@ -317,6 +329,7 @@ def _build_graph(
             risk_score=risk_score,
             risk_band=risk_band,
             score_components=components,
+            analysis_settings=state["analysis_settings"],
             claims=state["findings"],
             durations_ms=state["durations_ms"],
             limitations=limitations,
