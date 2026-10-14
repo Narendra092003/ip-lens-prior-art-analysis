@@ -61,7 +61,7 @@ class AnalysisRequest(ContractModel):
         min_length=1
     )
     top_k: int | None = Field(default=None, ge=1, le=10)
-    prompt_version: Literal["v1", "v2"] = "v1"
+    prompt_version: Literal["v1", "v2"] = "v2"
 
     @model_validator(mode="after")
     def validate_unique_claim_ids(self) -> "AnalysisRequest":

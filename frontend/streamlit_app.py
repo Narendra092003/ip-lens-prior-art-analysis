@@ -217,7 +217,7 @@ if st.session_state.disclosure_summary:
     prompt_version = st.selectbox(
         "Comparison prompt version",
         options=["v1", "v2"],
-        index=0,
+        index=1,
         help="Choose which claim-comparison prompt to use for this analysis.",
     )
     if st.button(

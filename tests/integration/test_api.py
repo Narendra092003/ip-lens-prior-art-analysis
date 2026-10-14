@@ -180,10 +180,11 @@ def test_analysis_returns_validated_report_and_both_exports(api_client) -> None:
             return SimpleNamespace(
                 parsed=None,
                 text=(
-                    '{"shared_elements":["battery sensor"],"missing_elements":[], '
-                    '"coverage_estimate":80,"assessment":"The passage describes a sensor.", '
-                    '"uncertainty":"The control details are unclear.",'
-                    '"cited_passage_labels":["P1"]}'
+                    '{"elements":[{"element_text":"battery sensor measures the battery state",'
+                    '"status":"explicit","explanation":"",'
+                    '"supporting_passage_labels":["P1"]}],'
+                    '"assessment":"The passage describes a battery sensor.",'
+                    '"uncertainty":"Other control details are unclear."}'
                 ),
             )
 
@@ -226,7 +227,7 @@ def test_analysis_returns_validated_report_and_both_exports(api_client) -> None:
     assert body["report"]["reviewed_claims"][0]["claim_id"] == "fictional-demo-claim-01"
     assert body["report"]["claims"][0]["claim_id"] == "fictional-demo-claim-01"
     assert body["report"]["analysis_settings"] == {
-        "comparison_prompt_version": "v1",
+        "comparison_prompt_version": "v2",
         "gemini_model": "gemini-2.5-flash",
         "min_similarity": 50,
         "top_k": 4,

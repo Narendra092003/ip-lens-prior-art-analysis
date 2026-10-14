@@ -1,1 +1,37 @@
-﻿[]
+[
+  {
+    "case_id": "fictional-demo-claim-01",
+    "claim": "A tractor turn assistance system comprising a tractor controller, a continuously variable transmission controller, an implement controller, an operator terminal, vehicle-position sensors, and a forward optical row-end sensor.",
+    "source": "demo"
+  },
+  {
+    "case_id": "fictional-demo-claim-02",
+    "claim": "The system of claim 1, wherein the transmission controller receives an engine-load estimate and adjusts a transmission ratio to keep travel response within a selected operating band during work and during a turn.",
+    "source": "demo"
+  },
+  {
+    "case_id": "fictional-demo-claim-03",
+    "claim": "The system of claim 1, wherein the controller enables a stored headland turn sequence only when the vehicle position is within a configured approach region and the optical sensor confirms row termination for a configured number of observations.",
+    "source": "demo"
+  },
+  {
+    "case_id": "fictional-demo-claim-04",
+    "claim": "The system of claim 1, wherein the controller requests operator confirmation or deferral if the optical sensor is obscured or if observations disagree.",
+    "source": "demo"
+  },
+  {
+    "case_id": "q01",
+    "claim": "A tractor controller that adjusts the transmission ratio based on measured engine load.",
+    "source": "held_out"
+  },
+  {
+    "case_id": "q03",
+    "claim": "A draft-control system raises a hitch by a limited increment when draft exceeds a threshold.",
+    "source": "held_out"
+  },
+  {
+    "case_id": "q09",
+    "claim": "A central tire system selects a field or road pressure setting and adjusts the tire toward it.",
+    "source": "held_out"
+  }
+]

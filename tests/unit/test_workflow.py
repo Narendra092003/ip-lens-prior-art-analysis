@@ -138,10 +138,36 @@ def _comparison_response(*, labels=None, missing=None, assessment=None, uncertai
     )
 
 
+def _comparison_v2_response():
+    return SimpleNamespace(
+        parsed=None,
+        text=json.dumps(
+            {
+                "elements": [
+                    {
+                        "element_text": "a tractor controller receives an engine load estimate",
+                        "status": "explicit",
+                        "explanation": "",
+                        "supporting_passage_labels": ["P1"],
+                    },
+                    {
+                        "element_text": "the controller adjusts the transmission ratio",
+                        "status": "explicit",
+                        "explanation": "",
+                        "supporting_passage_labels": ["P1"],
+                    },
+                ],
+                "assessment": "The passage describes both operations.",
+                "uncertainty": "Other claim conditions remain unspecified.",
+            }
+        ),
+    )
+
+
 def test_workflow_routes_claims_records_durations_and_calls_gemini_once(tmp_path):
     settings = _settings(tmp_path / "chroma")
     store = _store_with_useful_passage(settings)
-    client = FakeClient(_comparison_response())
+    client = FakeClient(_comparison_v2_response())
 
     result = run_analysis(
         "Fictional disclosure text.",
@@ -165,7 +191,7 @@ def test_workflow_routes_claims_records_durations_and_calls_gemini_once(tmp_path
     assert "unvalidated triage heuristic" in result["report"].limitations
     assert result["report"].durations_ms == result["durations_ms"]
     assert result["report"].analysis_settings.model_dump() == {
-        "comparison_prompt_version": "v1",
+        "comparison_prompt_version": "v2",
         "gemini_model": "test-model",
         "min_similarity": 85,
         "top_k": settings.default_top_k,
@@ -196,6 +222,24 @@ def test_workflow_routes_claims_records_durations_and_calls_gemini_once(tmp_path
         "compute_score_and_assemble_report",
     }
     assert all(duration >= 0 for duration in result["durations_ms"].values())
+
+
+def test_workflow_keeps_v1_selectable(tmp_path):
+    settings = _settings(tmp_path / "chroma")
+    store = _store_with_useful_passage(settings)
+    client = FakeClient(_comparison_response())
+
+    result = run_analysis(
+        "Fictional disclosure text.",
+        _claims()[:1],
+        prompt_version="v1",
+        settings=settings,
+        vector_store=store,
+        gemini_client=client,
+    )
+
+    assert result["status"] == "completed"
+    assert result["report"].analysis_settings.comparison_prompt_version == "v1"
 
 
 def test_too_many_claims_stop_before_retrieval_or_model_call(tmp_path):
@@ -267,6 +311,7 @@ def test_invalid_citations_create_unsupported_and_continue_to_next_claim(tmp_pat
     result = run_analysis(
         "Fictional disclosure text.",
         [*_claims(), third_claim],
+        prompt_version="v1",
         settings=settings,
         vector_store=store,
         gemini_client=client,
@@ -310,6 +355,7 @@ def test_zero_citations_preserve_comparison_and_record_retrieval_stats(tmp_path)
     result = run_analysis(
         "Fictional disclosure text.",
         _claims()[:1],
+        prompt_version="v1",
         settings=settings,
         vector_store=store,
         gemini_client=client,

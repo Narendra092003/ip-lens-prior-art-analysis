@@ -42,7 +42,7 @@ These observations define the changes for `claim_compare_v2`.
 
 ## Prompt v2 observations (claim comparison)
 
-**What v2 changes.** v2 splits each claim into single-feature technical elements and judges each one separately as `explicit`, `inferred`, `partial` or `missing`, with supporting passage labels. Claim references such as "The system of claim 1" are excluded. Coverage is calculated in Python from the element statuses (explicit = 1, inferred = 0.75, partial = 0.5, missing = 0, averaged and scaled to 0–100). Comparison runs at temperature 0.1. v1 is unchanged and remains the workflow default.
+**What v2 changes.** v2 splits each claim into single-feature technical elements and judges each one separately as `explicit`, `inferred`, `partial` or `missing`, with supporting passage labels. Claim references such as "The system of claim 1" are excluded. Coverage is calculated in Python from the element statuses (explicit = 1, inferred = 0.75, partial = 0.5, missing = 0, averaged and scaled to 0–100). Comparison runs at temperature 0.1. v2 is now the workflow and API default; v1 remains available by explicit selection.
 
 **First iteration.** The first v2 prompt merged several features into compound elements (for example "transmission ratio and selected operating band during work and turns"), so one new feature caused the whole element to be marked missing: the all-or-nothing problem returned at element level. A prompt-only change (one feature per element; conditions split from the actions they control) fixed the splitting.
 

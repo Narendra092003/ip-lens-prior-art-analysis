@@ -59,7 +59,7 @@ def run_analysis(
     reviewed_claims: Sequence[ReviewedClaim],
     *,
     top_k: int | None = None,
-    prompt_version: str = "v1",
+    prompt_version: str = "v2",
     invention_summary: str = "Summary not provided.",
     settings: Settings | None = None,
     vector_store: Any | None = None,
