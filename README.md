@@ -1,4 +1,4 @@
-# IP Lens: AI Agent Platform for Automated Patent and Intellectual Property Analysis
+﻿# IP Lens: AI Agent Platform for Automated Patent and Intellectual Property Analysis
 
 A multi-agent tool for prior-art search, claim comparison and novelty-risk scoring of technology disclosures.
 
@@ -9,7 +9,7 @@ A multi-agent tool for prior-art search, claim comparison and novelty-risk scori
 [![Gemini](https://img.shields.io/badge/Models-Gemini-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 
-![IP Lens results for the tractor demo: prior art found for claim 1, optical sensor missing](docs/screenshot_results.png)
+![IP Lens home page](docs/screenshot_results.png)
 
 IP Lens checks a new invention against a collection of patent documents. For each claim, it shows which features already appear in the documents, which are missing, and the exact document and page for every finding.
 
