@@ -9,7 +9,7 @@ A multi-agent tool for prior-art search, claim comparison and novelty-risk scori
 [![Gemini](https://img.shields.io/badge/Models-Gemini-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 
-![IP Lens home page](docs/screenshot_results.png)
+![Corpus overview](docs/screenshots/01_corpus_overview.png)
 
 IP Lens checks a new invention against a collection of patent documents. For each claim, it shows which features already appear in the documents, which are missing, and the exact document and page for every finding.
 
