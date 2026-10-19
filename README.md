@@ -141,3 +141,29 @@ Create a Docker Space named `ip-lens` and set the Space secrets `GEMINI_API_KEY`
 | Space sleeping | Free-tier Spaces can cold-start; wait for the Space to wake and reload the page. |
 
 For implementation details, see [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md), [`PROJECT_SPECIFICATION.md`](PROJECT_SPECIFICATION.md), and [`DESIGN-CHANGES.md`](DESIGN-CHANGES.md).
+
+## Screenshots
+
+**1. Corpus overview**
+![Corpus overview](docs/screenshots/01_corpus_overview.png)
+
+**2. Invention disclosure**
+![Invention disclosure](docs/screenshots/02_invention_disclosure.png)
+
+**3. AI-generated invention summary**
+![Analysis summary](docs/screenshots/03_analysis_summary.png)
+
+**4. Reviewed claims**
+![Reviewed claims](docs/screenshots/04_reviewed_claims.png)
+
+**5. Novelty-risk score**
+![Risk score](docs/screenshots/05_risk_score.png)
+
+**6. Evidence found, optical sensor missing**
+![Claim 1 sensor missing](docs/screenshots/06_claim1_sensor_missing.png)
+
+**7. Cited passage with document and page**
+![Cited passage](docs/screenshots/07_claim1_cited_passage.png)
+
+**8. No supporting passage found**
+![No supporting passage](docs/screenshots/08_claim3_no_supporting_passage.png)
